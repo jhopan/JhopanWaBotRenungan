@@ -1,0 +1,17 @@
+📖 *Renungan Harian*
+📅 {date}
+
+✝️ *Ayat Hari Ini:*
+{verse}
+
+📝 *Bacaan:*
+{text}
+
+💭 *Refleksi:*
+{reflection}
+
+🙏 *Doa:*
+Tuhan Yesus, terima kasih untuk firman-Mu hari ini. Bantulah kami untuk hidup sesuai kehendak-Mu. Amin.
+
+---
+_Tuhan memberkati hari Anda_ 🕊️
