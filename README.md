@@ -1,37 +1,84 @@
-# 🤖 WhatsApp Bot Renungan Harian v3.0
+# 🤖 WhatsApp Bot Renungan Harian v3.1
 
-Bot WhatsApp dengan sistem renungan harian menggunakan AI dan manajemen ayat per tahun.
+Bot WhatsApp dengan sistem renungan harian menggunakan AI, manajemen ayat random dengan history persist, dan retry mechanism otomatis.
 
 ## ✨ Fitur Utama
 
-- 📖 **Renungan Harian dengan AI** - Generate renungan lengkap dari referensi ayat menggunakan Gemini/OpenRouter AI
-- 📅 **Sistem Verse Tahunan** - 365 ayat unik per tahun, tidak ada pengulangan dalam setahun
+- 📖 **Renungan Harian dengan AI** - Generate renungan lengkap dari referensi ayat menggunakan Gemini AI
+- 🎲 **Random Verse dengan History** - Ayat dipilih random, tidak akan berulang sampai semua terpakai
+- 💾 **History Persist** - Riwayat ayat tersimpan meskipun bot restart
+- 🔄 **Auto-Retry 10 Menit** - Gagal kirim? Otomatis retry setelah 10 menit
 - 🎂 **Pengingat Ulang Tahun** - Integrasi Google Sheets untuk ulang tahun otomatis
 - 🕒 **Scheduler Otomatis** - Kirim renungan & ucapan ulang tahun sesuai jadwal
 - 🎯 **Kategori Ayat** - 11 kategori (Kasih ❤️, Iman ✝️, Harapan ✨, dll)
 - 🎉 **Ayat Hari Besar** - Ayat khusus untuk Natal, Paskah, Pentakosta, dll
-- 🎛️ **Telegram Control Panel** - Kontrol bot via Telegram (preview, kirim manual, statistik)
+- 🎛️ **Telegram Control Panel** - Kontrol bot via Telegram (preview, kirim manual, reset ayat)
+- 🔐 **Error ke Telegram Only** - Error AI tidak tampil di WhatsApp, hanya notif ke admin Telegram
 - 🔄 **Auto-Reconnect** - Reconnect otomatis jika WhatsApp terputus
 
-## 📊 Sistem Verse Tahunan
+## 🎲 Sistem Random Verse dengan History
 
-Bot menggunakan sistem file verse per tahun (`verses_YYYY.json`) yang berisi 365 ayat unik:
+Bot menggunakan sistem **random selection** dengan **history tracking**:
 
+### Cara Kerja:
+1. **Random Selection** - Setiap hari, bot pilih ayat secara random dari pool yang belum terpakai
+2. **Mark as Used** - Ayat yang sudah dipilih ditandai `used: true` dan disimpan ke file
+3. **Persist History** - Meskipun bot restart, ayat yang sudah terpakai tidak akan dipilih lagi
+4. **Auto Reset** - Jika semua ayat sudah terpakai (365 ayat habis), otomatis reset ke awal
+5. **Manual Reset** - Bisa reset manual via Telegram: "🔄 Reset Status Ayat"
+
+### Struktur File:
+```json
+{
+  "verses": [
+    {
+      "id": 1,
+      "verse": "Yohanes 3:16",
+      "category": "kasih",
+      "used": false  // ← Jadi true saat terpakai
+    }
+  ]
+}
 ```
-src/data/
-  ├── verses_2026.json  (365 ayat untuk 2026)
-  ├── verses_2027.json  (365 ayat untuk 2027)
-  ├── verses_2028.json  (365 ayat untuk 2028)
-  └── ...
+
+### Keuntungan:
+- ✅ Tidak ada pengulangan ayat sampai semua terpakai
+- ✅ History tersimpan meskipun bot restart/crash
+- ✅ Random setiap hari (tidak predictable)
+- ✅ Bisa reset manual kapan saja
+- ✅ 365+ ayat dalam database per tahun
+
+## 🔄 Auto-Retry Mechanism
+
+Jika gagal kirim renungan (jaringan mati, WA disconnect):
+- ⏱️ **Retry otomatis** setelah **10 menit**
+- 🔁 **Hanya retry 1 kali** (tidak loop forever)
+- 📲 **Notifikasi ke admin** via Telegram
+- ✅ **Sukses = selesai** untuk hari itu
+
+**Contoh:**
+```
+08:00 - Gagal kirim (jaringan mati) ❌
+      → Dijadwalkan retry jam 08:10
+08:10 - Retry berhasil ✅
+      → Selesai untuk hari ini
 ```
 
-**Keuntungan:**
-- ✅ Setiap hari dalam satu tahun mendapat ayat yang berbeda
-- ✅ Tidak ada ayat yang berulang sepanjang tahun
-- ✅ Setiap tahun memiliki urutan ayat yang berbeda (seeded random)
-- ✅ Total 400+ ayat dalam database, dipilih 365 per tahun
+## 🔐 Error Handling
 
-### Generate Verses Untuk Tahun Baru
+- ❌ **AI Error** → Hanya tampil di Telegram admin (tidak di WhatsApp grup)
+- 📱 **Format notifikasi:**
+```
+🚨 Error Alert
+
+❌ AI Error saat generate renungan
+Ayat: Yohanes 3:16
+Hari: Normal
+
+⏰ 14/01/2026 10:47:31
+```
+
+## 📊 Generate Verses Tahunan
 
 ```bash
 # Generate untuk satu tahun
@@ -41,12 +88,14 @@ node tools/generateYearlyVerses.js 2026
 node tools/generateYearlyVerses.js 2026 2027 2028 2029 2030
 ```
 
+File akan dibuat di `src/data/verses_YYYY.json`
+
 ## 📋 Prasyarat
 
 - Node.js v16 atau lebih baru
 - Akun Telegram Bot (dari @BotFather)
-- Google API Service Account (untuk ulang tahun)
-- Gemini/OpenRouter API Key (untuk AI renungan)
+- **Gemini API Key** (gratis dari https://aistudio.google.com/apikey)
+- Google Service Account (opsional - untuk ulang tahun)
 
 ## 🚀 Quick Start
 
@@ -63,29 +112,44 @@ cd JhopanWaBotRenungan
 npm install
 ```
 
-3. **Setup environment (`.env`):**
+3. **Setup environment:**
+
+Copy `.env.example` ke `.env` dan isi:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
 
 ```env
-# Telegram Bot Token (dari @BotFather)
+# Telegram Bot (wajib)
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 
-# AI Configuration (pilih salah satu)
+# AI Provider - Gemini (recommended)
 AI_PROVIDER=gemini
 GEMINI_API_KEY=your_gemini_api_key
-# atau
-AI_PROVIDER=openrouter  
-OPENROUTER_API_KEY=your_openrouter_key
+AI_MODEL=gemini-1.5-flash
 
-# Google Sheets (untuk ulang tahun)
-GOOGLE_SERVICE_ACCOUNT=./credentials.json
-SPREADSHEET_ID=your_google_sheet_id
-
-# Timezone & Jadwal
-TIMEZONE=Asia/Makassar
-RENUNGAN_GROUP_ID=628123456789@c.us
+# WhatsApp Configuration
+RENUNGAN_GROUP_ID=120363123456789@g.us
 RENUNGAN_TIME=08:00
+
+# Timezone
+TIMEZONE=Asia/Makassar
+
+# Google Sheets (opsional - untuk ulang tahun)
+GOOGLE_SERVICE_ACCOUNT=./credentials.json
+SPREADSHEET_ID=your_spreadsheet_id
+BIRTHDAY_GROUP_ID=120363123456789@g.us
 BIRTHDAY_TIME=07:00
 ```
+
+**Cara dapat Gemini API Key:**
+1. Buka https://aistudio.google.com/apikey
+2. Login dengan Google
+3. Klik "Create API Key"
+4. Copy dan paste ke `.env`
 
 4. **Generate verses untuk tahun ini:**
 
@@ -105,9 +169,29 @@ npm start
 
 Bot dikontrol sepenuhnya via Telegram. Kirim `/start` untuk melihat menu:
 
-- 📖 **Renungan** - Preview, kirim manual, lihat statistik
-- 🎂 **Ulang Tahun** - Kirim ucapan, lihat data
-- 📊 **Status** - Cek koneksi WhatsApp & sistem
+### Menu Utama:
+- 📖 **Renungan**
+  - 👁️ Preview renungan hari ini
+  - 📤 Kirim renungan manual (tidak tunggu jadwal)
+  - 📊 Statistik ayat (berapa ayat tersisa)
+  - 🔄 **Reset status ayat** (mulai dari awal lagi)
+  - ⏰ Ubah jadwal renungan
+  
+- 🎂 **Ulang Tahun**
+  - Kirim ucapan manual
+  - Lihat data dari Google Sheets
+  - Ubah jadwal cek ulang tahun
+
+- 📊 **Status Sistem**
+  - Cek koneksi WhatsApp
+  - Cek koneksi AI
+  - Lihat konfigurasi bot
+
+### Fitur Reset Ayat:
+Gunakan menu **"🔄 Reset Status Ayat"** untuk:
+- Reset semua ayat ke `used: false`
+- Mulai seleksi random dari awal
+- Berguna jika ingin mengulang dari awal sebelum 365 ayat habis
 
 ### Kategori Ayat
 
@@ -156,7 +240,7 @@ whatsapp-telegram-bot/
 └── README.md
 ```
 
-## 🔧 Maintenance
+## 🔧 Maintenance & Tips
 
 ### Generate Verses untuk Tahun Baru
 
@@ -166,15 +250,59 @@ Setiap awal tahun, generate verses baru:
 node tools/generateYearlyVerses.js 2027
 ```
 
+### Reset Status Ayat (Manual)
+
+Via Telegram Bot:
+```
+Menu → Renungan → Reset Status Ayat
+```
+
+Atau langsung edit file `src/data/verses_2026.json`:
+```json
+{
+  "verses": [
+    {
+      "used": true  // ← Ubah semua jadi false
+    }
+  ]
+}
+```
+
 ### Update Database Ayat
 
-Edit file `tools/generateYearlyVerses.js` di bagian `allVerses` object untuk menambah ayat baru ke database.
+Edit file `tools/generateYearlyVerses.js` di bagian `allVerses` object untuk menambah ayat baru:
+
+```javascript
+const allVerses = {
+    kasih: [
+        "Yohanes 3:16",
+        "1 Korintus 13:4-7",
+        // ... tambahkan ayat baru di sini
+    ],
+    // ... kategori lainnya
+};
+```
+
+Lalu generate ulang:
+```bash
+node tools/generateYearlyVerses.js 2026
+```
+
+### Monitoring via Telegram
+
+Semua error dan notifikasi penting dikirim ke admin via Telegram:
+- ❌ Error AI saat generate renungan
+- 🔄 Status retry (gagal kirim, akan retry)
+- ⚠️ Warning koneksi terputus
+
+**Tidak ada error yang tampil di grup WhatsApp!**
 
 ### Backup Data
 
 File penting untuk di-backup:
-- `.env` - Konfigurasi
-- `credentials.json` - Google credentials
+- `.env` - Konfigurasi dan API keys
+- `credentials.json` - Google service account
+- `src/data/verses_2026.json` - History ayat terpakai
 - `src/data/birthdays.json` - Data ulang tahun
 
 ## 🔐 Security
@@ -211,11 +339,38 @@ npm start
 node tools/generateYearlyVerses.js 2026
 ```
 
+### Renungan tidak terkirim otomatis:
+
+**Kemungkinan penyebab:**
+1. **Jaringan mati** → Bot akan retry 10 menit kemudian
+2. **WhatsApp disconnect** → Cek koneksi via Telegram menu Status
+3. **Group ID salah** → Cek `RENUNGAN_GROUP_ID` di `.env`
+4. **Timezone salah** → Pastikan `TIMEZONE=Asia/Makassar` sesuai
+
+**Solusi:**
+- Kirim manual via Telegram jika urgent
+- Cek log di terminal untuk detail error
+- Notifikasi error akan dikirim ke admin Telegram
+
 ### AI error / API limit:
 
-- Cek API key di `.env`
-- Ganti provider jika perlu (Gemini ↔ OpenRouter)
-- Periksa quota API
+- **Cek API key** di `.env` (pastikan valid)
+- **Cek quota** Gemini di https://aistudio.google.com
+- **Error tidak tampil di WA** → hanya notif di Telegram admin
+- Gemini free tier: 15 request/menit (lebih dari cukup)
+
+### Ayat terus berulang:
+
+**Penyebab:** File verses tidak menyimpan status `used`
+
+**Solusi:**
+```bash
+# Cek file permission
+ls -la src/data/verses_2026.json
+
+# Pastikan bot bisa write ke file
+chmod 644 src/data/verses_2026.json
+```
 
 ### Google Sheets error:
 
@@ -237,6 +392,7 @@ pm2 startup
 
 ```bash
 pm2 logs wa-renungan
+pm2 monit
 ```
 
 **Auto-restart on error:**
@@ -244,6 +400,39 @@ pm2 logs wa-renungan
 ```bash
 pm2 restart wa-renungan
 ```
+
+## 📱 Fitur Unggulan v3.1
+
+### 1. Random Selection dengan Memory
+Tidak seperti bot lain yang mengulang ayat, bot ini:
+- ✅ Mengingat ayat yang sudah terpakai
+- ✅ Tidak pernah mengirim ayat yang sama sampai semua habis
+- ✅ History tersimpan meskipun bot restart/crash
+
+### 2. Auto-Retry Cerdas
+Jika gagal kirim karena jaringan:
+- ✅ Tidak langsung give up
+- ✅ Retry otomatis setelah 10 menit
+- ✅ Admin dapat notifikasi via Telegram
+- ✅ Tidak spam retry berkali-kali
+
+### 3. Error Handling Profesional
+- ✅ Error AI tidak tampil di grup WA (tidak memalukan)
+- ✅ Admin dapat notifikasi detail via Telegram
+- ✅ User grup hanya terima renungan yang sukses
+
+### 4. Maintenance Friendly
+- ✅ Reset ayat kapan saja via Telegram
+- ✅ Generate verses tahun baru dengan 1 command
+- ✅ Monitoring lengkap dari Telegram
+
+## 🎁 Bonus Features
+
+- 🎂 **Birthday Reminder** - Ucapan otomatis dari Google Sheets
+- 🎉 **Special Days** - Ayat khusus untuk hari besar (Natal, Paskah, dll)
+- 📊 **Statistics** - Tracking berapa ayat tersisa
+- ⚙️ **Dynamic Config** - Ubah jadwal tanpa restart bot
+- 🔐 **Secure** - API keys tidak di-commit ke Git
 
 ## 🤝 Kontribusi
 
