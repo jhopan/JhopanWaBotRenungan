@@ -21,7 +21,7 @@ let renunganCronJob = null;
  */
 function getVersesFilePath(year = null) {
   const currentYear = year || new Date().getFullYear();
-  return path.join(__dirname, 'data', `verses_${currentYear}.json`);
+  return path.join(__dirname, "data", `verses_${currentYear}.json`);
 }
 
 /**
@@ -30,13 +30,17 @@ function getVersesFilePath(year = null) {
 async function loadVerses(year = null) {
   try {
     const filePath = getVersesFilePath(year);
-    
+
     // Cek apakah file ada
-    if (!await fs.pathExists(filePath)) {
-      console.log(`⚠️ File verses tahun ${year || new Date().getFullYear()} tidak ditemukan, gunakan generateYearlyVerses.js dulu`);
+    if (!(await fs.pathExists(filePath))) {
+      console.log(
+        `⚠️ File verses tahun ${
+          year || new Date().getFullYear()
+        } tidak ditemukan, gunakan generateYearlyVerses.js dulu`
+      );
       return { verses: [], specialDayVerses: {}, metadata: {} };
     }
-    
+
     return await fs.readJson(filePath);
   } catch (error) {
     console.error("❌ Error load verses:", error.message);
@@ -66,7 +70,7 @@ async function saveVerses(data, year = null) {
 async function getVerseForToday() {
   const currentYear = new Date().getFullYear();
   const versesData = await loadVerses(currentYear);
-  
+
   if (!versesData.verses || versesData.verses.length === 0) {
     console.error(`❌ Tidak ada data verses untuk tahun ${currentYear}`);
     return { verseRef: "Mazmur 119:105", specialDay: null, isSpecial: false };
@@ -116,13 +120,17 @@ async function getVerseForToday() {
     await saveVerses(versesData, currentYear);
   }
 
-  console.log(`📖 Verse dipilih: ${selectedVerse.verse} (${unusedVerses.length - 1} tersisa)`);
+  console.log(
+    `📖 Verse dipilih: ${selectedVerse.verse} (${
+      unusedVerses.length - 1
+    } tersisa)`
+  );
 
-  return { 
-    verseRef: selectedVerse.verse, 
-    specialDay, 
+  return {
+    verseRef: selectedVerse.verse,
+    specialDay,
     isSpecial: !!specialDay,
-    category: selectedVerse.category
+    category: selectedVerse.category,
   };
 }
 
@@ -132,7 +140,7 @@ async function getVerseForToday() {
 async function resetVerses(year = null) {
   const currentYear = year || new Date().getFullYear();
   const versesData = await loadVerses(currentYear);
-  
+
   if (!versesData.verses || versesData.verses.length === 0) {
     return { success: false, error: "Tidak ada data verses" };
   }
@@ -142,11 +150,11 @@ async function resetVerses(year = null) {
   });
 
   await saveVerses(versesData, currentYear);
-  
-  return { 
-    success: true, 
+
+  return {
+    success: true,
     total: versesData.verses.length,
-    year: currentYear
+    year: currentYear,
   };
 }
 
@@ -166,7 +174,7 @@ async function sendRenungan(isRetry = false) {
     // Cek koneksi WhatsApp
     if (!(await wa.isConnected())) {
       console.log("⏳ Renungan menunggu WhatsApp reconnect...");
-      
+
       // Schedule retry 10 menit kemudian jika belum retry
       if (!isRetry) {
         console.log("🔄 Akan retry dalam 10 menit...");
@@ -174,11 +182,19 @@ async function sendRenungan(isRetry = false) {
           sendRenungan(true);
         }, 10 * 60 * 1000); // 10 menit
       }
-      
-      return { success: false, error: "WhatsApp tidak terhubung", willRetry: !isRetry };
+
+      return {
+        success: false,
+        error: "WhatsApp tidak terhubung",
+        willRetry: !isRetry,
+      };
     }
 
-    console.log(isRetry ? "🔄 Retry kirim renungan..." : "📖 Generating renungan harian...");
+    console.log(
+      isRetry
+        ? "🔄 Retry kirim renungan..."
+        : "📖 Generating renungan harian..."
+    );
 
     // Get referensi ayat hari ini
     const { verseRef, specialDay, isSpecial } = await getVerseForToday();
@@ -193,15 +209,19 @@ async function sendRenungan(isRetry = false) {
     const message = await generateRenungan(verseRef, specialDay);
 
     // Jika AI error, kirim notifikasi ke Telegram saja
-    if (!message || message.includes('Error') || message.includes('Maaf')) {
+    if (!message || message.includes("Error") || message.includes("Maaf")) {
       console.error("❌ AI gagal generate renungan");
-      
+
       // Kirim notif error ke Telegram (jangan ke WhatsApp)
-      const telegram = require('./botTelegram');
+      const telegram = require("./botTelegram");
       if (telegram && telegram.notifyAdminError) {
-        await telegram.notifyAdminError(`❌ AI Error saat generate renungan\nAyat: ${verseRef}\nHari: ${specialDay || 'Normal'}`);
+        await telegram.notifyAdminError(
+          `❌ AI Error saat generate renungan\nAyat: ${verseRef}\nHari: ${
+            specialDay || "Normal"
+          }`
+        );
       }
-      
+
       return { success: false, error: "AI error", verse: verseRef };
     }
 
@@ -215,11 +235,11 @@ async function sendRenungan(isRetry = false) {
       verse: verseRef,
       specialDay,
       groupId,
-      isRetry
+      isRetry,
     };
   } catch (error) {
     console.error("❌ Gagal kirim renungan:", error.message);
-    
+
     // Schedule retry 10 menit kemudian jika belum retry
     if (!isRetry) {
       console.log("🔄 Akan retry dalam 10 menit...");
@@ -227,13 +247,17 @@ async function sendRenungan(isRetry = false) {
         sendRenungan(true);
       }, 10 * 60 * 1000); // 10 menit
     }
-    
+
     // Notif error ke Telegram saja
-    const telegram = require('./botTelegram');
+    const telegram = require("./botTelegram");
     if (telegram && telegram.notifyAdminError) {
-      await telegram.notifyAdminError(`❌ Error kirim renungan:\n${error.message}\n${isRetry ? '(Retry gagal)' : '(Akan retry 10 menit)'}`);
+      await telegram.notifyAdminError(
+        `❌ Error kirim renungan:\n${error.message}\n${
+          isRetry ? "(Retry gagal)" : "(Akan retry 10 menit)"
+        }`
+      );
     }
-    
+
     return { success: false, error: error.message, willRetry: !isRetry };
   }
 }

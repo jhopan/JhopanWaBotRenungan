@@ -503,7 +503,7 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
 
     case "renungan_reset":
       const resetResult = await renungan.resetVerses();
-      
+
       if (resetResult.success) {
         await safeEditMessage(
           `✅ *Status ayat berhasil direset!*\n\n📖 Total ayat: ${resetResult.total}\n📅 Tahun: ${resetResult.year}\n\n✨ Semua ayat ditandai belum dipakai dan siap digunakan kembali dari awal.`,
@@ -518,18 +518,15 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
           }
         );
       } else {
-        await safeEditMessage(
-          `❌ *Gagal reset ayat*\n\n${resetResult.error}`,
-          {
-            chat_id: chatId,
-            message_id: messageId,
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
-              ],
-            },
-          }
-        );
+        await safeEditMessage(`❌ *Gagal reset ayat*\n\n${resetResult.error}`, {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
+            ],
+          },
+        });
       }
       break;
   }
@@ -1611,11 +1608,13 @@ async function notifyAdminError(errorMessage) {
     return;
   }
 
-  const message = `🚨 *Error Alert*\n\n${errorMessage}\n\n⏰ ${moment().format('DD/MM/YYYY HH:mm:ss')}`;
+  const message = `🚨 *Error Alert*\n\n${errorMessage}\n\n⏰ ${moment().format(
+    "DD/MM/YYYY HH:mm:ss"
+  )}`;
 
   for (const adminId of ADMIN_IDS) {
     try {
-      await bot.sendMessage(adminId, message, { parse_mode: 'Markdown' });
+      await bot.sendMessage(adminId, message, { parse_mode: "Markdown" });
     } catch (err) {
       console.error(`❌ Gagal kirim notif ke admin ${adminId}:`, err.message);
     }
