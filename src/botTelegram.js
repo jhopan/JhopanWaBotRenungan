@@ -1,1026 +1,1592 @@
+/**
+ * Telegram Bot - Control Panel
+ * Panel kontrol untuk mengatur WhatsApp Bot
+ * Fokus: Renungan Harian & Ulang Tahun
+ */
+
 const TelegramBot = require("node-telegram-bot-api");
 const fs = require("fs-extra");
 const moment = require("moment-timezone");
-moment.tz.setDefault(process.env.TIMEZONE);
+const wa = require("./botWhatsApp");
+const renungan = require("./renunganHandler");
+const birthday = require("./birthdayReminder");
+const sheets = require("./googleSheetService");
+const { testAIConnection, getProvider } = require("./services/aiService");
+const {
+  loadConfig,
+  saveConfig,
+  setRenunganGroupId,
+  setBirthdayGroupId,
+  setRenunganTime,
+  setBirthdayTime,
+} = require("./utils/configManager");
 
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+moment.tz.setDefault(process.env.TIMEZONE || "Asia/Makassar");
 
-// Daftar Admin IDs dari .env
+// Inisialisasi bot dengan retry mechanism
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
+  polling: {
+    interval: 1000,
+    autoStart: true,
+    params: {
+      timeout: 10,
+    },
+  },
+});
+
+// Retry state untuk koneksi
+let pollingRetries = 0;
+const MAX_POLLING_RETRIES = 10;
+const POLLING_RETRY_DELAY = 5000;
+
+// Internet connection state
+let isOnline = true;
+let reconnectTimeout = null;
+
+// Admin IDs
 const ADMIN_IDS = process.env.ADMIN_TELEGRAM_IDS
   ? process.env.ADMIN_TELEGRAM_IDS.split(",").map((id) => parseInt(id.trim()))
   : [];
 
-// State management untuk admin yang sudah login
-const adminSessions = new Map(); // userId -> { waLoggedIn: boolean, contacts: [], groups: [] }
+// Simpan preview message untuk setiap user
+const previewMessages = new Map();
 
-// Middleware: Cek apakah user adalah admin
+// State management
+const userStates = new Map();
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
 function isAdmin(userId) {
   return ADMIN_IDS.includes(userId);
 }
 
-// Kirim pesan akses ditolak
-function denyAccess(chatId, username) {
+function denyAccess(chatId) {
   bot.sendMessage(
     chatId,
-    `❌ *Akses Ditolak*\n\nMaaf @${
-      username || "user"
-    }, hanya admin yang dapat menggunakan bot ini.\n\n🔒 Hubungi administrator untuk mendapatkan akses.`,
+    "❌ *Akses Ditolak*\n\nAnda tidak memiliki izin untuk menggunakan bot ini.",
     { parse_mode: "Markdown" }
   );
 }
 
-// Cek apakah admin sudah login WhatsApp
-async function checkWhatsAppLogin(waClient) {
+function getStatusEmoji(connected) {
+  return connected ? "🟢" : "🔴";
+}
+
+/**
+ * Escape markdown untuk Telegram (v1)
+ * Menghandle underscore, asterisk, dll
+ */
+function escapeMarkdown(text) {
+  if (!text) return "";
+  // Untuk markdown v1, escape karakter khusus dalam context italic
+  return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1");
+}
+
+/**
+ * Safe send message dengan HTML fallback
+ */
+async function safeSendMessage(chatId, text, options = {}) {
   try {
-    const state = await waClient.getState();
-    return state === "CONNECTED";
+    return await bot.sendMessage(chatId, text, {
+      parse_mode: "Markdown",
+      ...options,
+    });
   } catch (error) {
-    return false;
+    if (error.message.includes("parse entities")) {
+      // Fallback: kirim tanpa formatting
+      const plainText = text
+        .replace(/\*/g, "")
+        .replace(/_/g, "")
+        .replace(/`/g, "");
+      return await bot.sendMessage(chatId, plainText, options);
+    }
+    throw error;
   }
 }
 
-// Sinkronisasi kontak dan grup WhatsApp
-async function syncWhatsAppData(waClient, userId) {
+/**
+ * Safe edit message dengan error handling
+ */
+async function safeEditMessage(text, options) {
   try {
-    console.log(`🔄 Sinkronisasi data WhatsApp untuk admin ${userId}...`);
-
-    // Get contacts
-    const contacts = await waClient.getContacts();
-    const filteredContacts = contacts
-      .filter((c) => c.isUser && c.id && c.id.user)
-      .map((c) => ({
-        id: c.id._serialized,
-        name: c.name || c.pushname || c.verifiedName || c.id.user || "Unknown",
-        number: c.id.user,
-      }))
-      .filter((c) => c.name && c.name !== "Unknown") // Filter out unknown names
-      .sort((a, b) => {
-        const nameA = String(a.name || "");
-        const nameB = String(b.name || "");
-        return nameA.localeCompare(nameB);
-      });
-
-    // Get chats (grup dan channel)
-    const chats = await waClient.getChats();
-    const groups = chats
-      .filter((c) => c.isGroup)
-      .map((c) => ({
-        id: c.id._serialized,
-        name: c.name || "Unnamed Group",
-        participants: c.participants ? c.participants.length : 0,
-      }))
-      .filter((g) => g.name && g.name !== "Unnamed Group")
-      .sort((a, b) => {
-        const nameA = String(a.name || "");
-        const nameB = String(b.name || "");
-        return nameA.localeCompare(nameB);
-      });
-
-    // Simpan ke session
-    adminSessions.set(userId, {
-      waLoggedIn: true,
-      contacts: filteredContacts,
-      groups: groups,
-      lastSync: new Date(),
+    return await bot.editMessageText(text, {
+      parse_mode: "Markdown",
+      ...options,
     });
-
-    // Simpan ke file untuk persistence
-    await fs.writeJson(
-      "./src/data/admin_sessions.json",
-      Array.from(adminSessions.entries()),
-      { spaces: 2 }
-    );
-
-    console.log(
-      `✅ Sinkronisasi selesai: ${filteredContacts.length} kontak, ${groups.length} grup`
-    );
-
-    return {
-      contacts: filteredContacts,
-      groups: groups,
-    };
   } catch (error) {
-    console.error("❌ Error sinkronisasi:", error.message);
-    return { contacts: [], groups: [] };
+    if (error.message.includes("parse entities")) {
+      const plainText = text
+        .replace(/\*/g, "")
+        .replace(/_/g, "")
+        .replace(/`/g, "");
+      return await bot.editMessageText(plainText, options);
+    }
+    throw error;
   }
 }
 
-function startTelegramBot(waClient) {
-  console.log("🤖 Telegram Bot aktif!");
-  console.log(
-    "👮 Admin IDs:",
-    ADMIN_IDS.length > 0 ? ADMIN_IDS.join(", ") : "Belum diatur!"
-  );
+// ============================================
+// MAIN MENU
+// ============================================
 
-  // Load admin sessions dari file
-  fs.readJson("./src/data/admin_sessions.json")
-    .then((data) => {
-      adminSessions.clear();
-      data.forEach(([userId, session]) => {
-        adminSessions.set(userId, session);
-      });
-      console.log(`📂 Loaded ${adminSessions.size} admin session(s)`);
-    })
-    .catch(() => {
-      console.log("📂 No previous admin sessions found");
+const mainMenuKeyboard = {
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: "📖 Renungan Harian", callback_data: "menu_renungan" }],
+      [{ text: "🎂 Ulang Tahun", callback_data: "menu_birthday" }],
+      [{ text: "⚙️ Pengaturan", callback_data: "menu_settings" }],
+      [{ text: "📊 Status Bot", callback_data: "menu_status" }],
+    ],
+  },
+};
+
+async function showMainMenu(chatId, userId) {
+  const waConnected = await wa.isConnected();
+  const status = getStatusEmoji(waConnected);
+
+  const message = `🤖 *Panel Kontrol WhatsApp Bot*
+
+${status} WhatsApp: ${waConnected ? "Terhubung" : "Tidak Terhubung"}
+📅 Tanggal: ${moment().format("dddd, DD MMMM YYYY")}
+⏰ Waktu: ${moment().format("HH:mm")} WITA
+
+Pilih menu di bawah:`;
+
+  return safeSendMessage(chatId, message, mainMenuKeyboard);
+}
+
+async function editToMainMenu(chatId, messageId) {
+  const waConnected = await wa.isConnected();
+  const status = getStatusEmoji(waConnected);
+
+  const message = `🤖 *Panel Kontrol WhatsApp Bot*
+
+${status} WhatsApp: ${waConnected ? "Terhubung" : "Tidak Terhubung"}
+📅 Tanggal: ${moment().format("dddd, DD MMMM YYYY")}
+⏰ Waktu: ${moment().format("HH:mm")} WITA
+
+Pilih menu di bawah:`;
+
+  return safeEditMessage(message, {
+    chat_id: chatId,
+    message_id: messageId,
+    ...mainMenuKeyboard,
+  });
+}
+
+// ============================================
+// COMMAND HANDLERS
+// ============================================
+
+bot.onText(/\/start/, async (msg) => {
+  const userId = msg.from.id;
+  const chatId = msg.chat.id;
+
+  if (!isAdmin(userId)) {
+    return denyAccess(chatId);
+  }
+
+  wa.setAdminChatId(userId, chatId);
+
+  const waConnected = await wa.isConnected();
+
+  if (!waConnected) {
+    return safeSendMessage(
+      chatId,
+      `👋 *Selamat Datang!*\n\n⚠️ WhatsApp belum terhubung.\n\nKlik tombol di bawah untuk login.`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "📱 Login WhatsApp", callback_data: "wa_login" }],
+          ],
+        },
+      }
+    );
+  }
+
+  await showMainMenu(chatId, userId);
+});
+
+bot.onText(/\/status/, async (msg) => {
+  const userId = msg.from.id;
+  const chatId = msg.chat.id;
+  if (!isAdmin(userId)) return denyAccess(chatId);
+  await showStatus(chatId);
+});
+
+bot.onText(/\/renungan/, async (msg) => {
+  const userId = msg.from.id;
+  const chatId = msg.chat.id;
+  if (!isAdmin(userId)) return denyAccess(chatId);
+  await showRenunganMenu(chatId, null);
+});
+
+bot.onText(/\/birthday/, async (msg) => {
+  const userId = msg.from.id;
+  const chatId = msg.chat.id;
+  if (!isAdmin(userId)) return denyAccess(chatId);
+  await showBirthdayMenu(chatId, null);
+});
+
+bot.onText(/\/testai/, async (msg) => {
+  const userId = msg.from.id;
+  const chatId = msg.chat.id;
+  if (!isAdmin(userId)) return denyAccess(chatId);
+
+  await safeSendMessage(chatId, "⏳ Testing AI connection...");
+
+  const result = await testAIConnection();
+
+  if (result.success) {
+    await safeSendMessage(
+      chatId,
+      `✅ *AI Connected!*\n\nModel: ${result.model}`
+    );
+  } else {
+    await safeSendMessage(chatId, `❌ *AI Error*\n\n${result.error}`);
+  }
+});
+
+// ============================================
+// CALLBACK HANDLERS
+// ============================================
+
+bot.on("callback_query", async (query) => {
+  const userId = query.from.id;
+  const chatId = query.message.chat.id;
+  const messageId = query.message.message_id;
+  const data = query.data;
+
+  if (!isAdmin(userId)) {
+    bot.answerCallbackQuery(query.id, {
+      text: "❌ Akses ditolak!",
+      show_alert: true,
     });
+    return;
+  }
 
-  const mainMenu = {
+  bot.answerCallbackQuery(query.id);
+
+  try {
+    if (data === "back_main") {
+      return editToMainMenu(chatId, messageId);
+    }
+
+    if (data.startsWith("menu_")) {
+      return handleMenuCallback(data, chatId, messageId, userId);
+    }
+
+    if (data.startsWith("renungan_")) {
+      return handleRenunganCallback(data, chatId, messageId, userId);
+    }
+
+    if (data.startsWith("birthday_")) {
+      return handleBirthdayCallback(data, chatId, messageId, userId);
+    }
+
+    if (data.startsWith("settings_")) {
+      return handleSettingsCallback(data, chatId, messageId, userId);
+    }
+
+    if (data.startsWith("wa_")) {
+      return handleWACallback(data, chatId, messageId, userId);
+    }
+
+    if (data.startsWith("verse_")) {
+      return handleVerseCallback(data, chatId, messageId, userId);
+    }
+
+    if (data.startsWith("cat_")) {
+      return handleCategoryCallback(data, chatId, messageId, userId);
+    }
+
+    if (data.startsWith("time_")) {
+      return handleTimeCallback(data, chatId, messageId, userId);
+    }
+  } catch (error) {
+    console.error("❌ Callback error:", error.message);
+    safeSendMessage(chatId, `❌ Error: ${error.message}`);
+  }
+});
+
+async function handleMenuCallback(data, chatId, messageId) {
+  switch (data) {
+    case "menu_renungan":
+      return showRenunganMenu(chatId, messageId);
+    case "menu_birthday":
+      return showBirthdayMenu(chatId, messageId);
+    case "menu_settings":
+      return showSettingsMenu(chatId, messageId);
+    case "menu_status":
+      return showStatus(chatId, messageId);
+  }
+}
+
+// ============================================
+// RENUNGAN MENU
+// ============================================
+
+async function showRenunganMenu(chatId, messageId) {
+  const stats = await renungan.getVersesStats();
+  const config = await loadConfig();
+
+  const groupDisplay = config.renunganGroupId || "Belum diatur";
+
+  const message = `📖 *Menu Renungan Harian*
+
+⏰ Jadwal: ${config.renunganTime || "08:00"} WITA
+👥 Group: ${groupDisplay.substring(0, 20)}...
+
+📊 Statistik Ayat:
+• Total: ${stats.total} ayat
+• Sudah dipakai: ${stats.used}
+• Belum dipakai: ${stats.unused}
+
+Pilih aksi:`;
+
+  const keyboard = {
     reply_markup: {
       inline_keyboard: [
-        [{ text: "� Kirim Pesan Berjadwal", callback_data: "menu_schedule" }],
-        [{ text: "📖 Renungan Harian", callback_data: "menu_renungan" }],
-        [{ text: "🎂 Ulang Tahun", callback_data: "menu_birthday" }],
-        [{ text: "🔄 Sinkronisasi Ulang", callback_data: "resync_wa" }],
-        [{ text: "🚪 Logout WhatsApp", callback_data: "logout_wa" }],
+        [{ text: "📤 Kirim Sekarang", callback_data: "renungan_send_now" }],
+        [{ text: "👀 Preview Renungan", callback_data: "renungan_preview" }],
+        [
+          {
+            text: "📝 Lihat Daftar Ayat",
+            callback_data: "renungan_list_verses",
+          },
+        ],
+        [{ text: "➕ Tambah Ayat Baru", callback_data: "renungan_add_verse" }],
+        [{ text: "🔄 Reset Status Ayat", callback_data: "renungan_reset" }],
+        [{ text: "⏰ Atur Jadwal", callback_data: "settings_renungan_time" }],
+        [{ text: "⬅️ Kembali", callback_data: "back_main" }],
       ],
     },
   };
 
-  // Store admin chat IDs untuk kirim QR
-  const adminChatIds = new Map(); // userId -> chatId
-
-  // Function untuk show main menu
-  async function showMainMenu(chatId, username) {
-    const welcomeMsg = `
-🤖 *Panel Kontrol WhatsApp Bot*
-
-👋 Selamat datang *Admin @${username}*!
-
-✅ Status: WhatsApp Terhubung
-📊 Data tersinkronisasi
-
-Pilih menu di bawah untuk memulai:
-    `.trim();
-
-    return bot.sendMessage(chatId, welcomeMsg, {
-      parse_mode: "Markdown",
-      ...mainMenu,
+  if (messageId) {
+    return safeEditMessage(message, {
+      chat_id: chatId,
+      message_id: messageId,
+      ...keyboard,
     });
   }
 
-  bot.onText(/start/i, async (msg) => {
-    const userId = msg.from.id;
-    const username = msg.from.username;
-    const chatId = msg.chat.id;
+  return safeSendMessage(chatId, message, keyboard);
+}
 
-    // Simpan chat ID admin
-    adminChatIds.set(userId, chatId);
-
-    // Verifikasi admin
-    if (!isAdmin(userId)) {
-      console.log(`⛔ Akses ditolak untuk user: ${username} (ID: ${userId})`);
-      return denyAccess(chatId, username);
-    }
-
-    // Cek WhatsApp login status
-    const isWAConnected = await checkWhatsAppLogin(waClient);
-
-    if (!isWAConnected) {
-      // WhatsApp belum login - kirim instruksi
-      const loginMsg = `
-👋 *Selamat datang Admin @${username}!*
-
-⚠️ *WhatsApp belum terhubung*
-
-Untuk menggunakan bot, Anda perlu menghubungkan WhatsApp terlebih dahulu.
-
-📱 Saya akan mengirimkan QR Code untuk Anda scan.
-
-⏳ *Mohon tunggu...*
-      `.trim();
-
-      await bot.sendMessage(chatId, loginMsg, { parse_mode: "Markdown" });
-      console.log(`📱 Admin ${username} (${userId}) perlu login WhatsApp`);
-
-      // Simpan info untuk kirim QR nanti
-      waClient.adminChatIds = waClient.adminChatIds || new Map();
-      waClient.adminChatIds.set(userId, chatId);
-
-      return;
-    }
-
-    // Cek apakah admin sudah punya session
-    let session = adminSessions.get(userId);
-
-    if (!session || !session.waLoggedIn) {
-      // Pertama kali login atau session expired
-      const syncMsg = await bot.sendMessage(
-        chatId,
-        `🔄 *Menyinkronkan Data WhatsApp...*\n\nMohon tunggu, sedang memuat:\n• 📇 Kontak\n• 👥 Grup\n• 📢 Channel`,
-        { parse_mode: "Markdown" }
-      );
-
-      // Sinkronisasi data
-      const syncData = await syncWhatsAppData(waClient, userId);
-
-      // Update pesan
-      await bot.editMessageText(
-        `✅ *Sinkronisasi Selesai!*\n\n` +
-          `📇 Kontak: ${syncData.contacts.length}\n` +
-          `👥 Grup: ${syncData.groups.length}\n\n` +
-          `Panel kontrol siap digunakan! 🚀`,
-        {
-          chat_id: chatId,
-          message_id: syncMsg.message_id,
-          parse_mode: "Markdown",
-        }
-      );
-
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-    }
-
-    // Tampilkan menu utama
-    const welcomeMsg = `
-🤖 *Panel Kontrol WhatsApp Bot*
-
-👋 Selamat datang *Admin @${username}*!
-
-✅ Status: WhatsApp Terhubung
-📊 Data tersinkronisasi
-
-Pilih menu di bawah untuk memulai:
-    `.trim();
-
-    bot.sendMessage(chatId, welcomeMsg, {
-      parse_mode: "Markdown",
-      ...mainMenu,
-    });
-  });
-
-  bot.on("callback_query", async (query) => {
-    const userId = query.from.id;
-    const username = query.from.username;
-    const chatId = query.message.chat.id;
-    const data = query.data;
-
-    // Verifikasi admin untuk setiap callback
-    if (!isAdmin(userId)) {
-      console.log(
-        `⛔ Callback ditolak untuk user: ${username} (ID: ${userId})`
-      );
-      bot.answerCallbackQuery(query.id, {
-        text: "❌ Akses ditolak! Hanya admin.",
-        show_alert: true,
+async function handleRenunganCallback(data, chatId, messageId, userId) {
+  switch (data) {
+    case "renungan_send_now":
+      await safeEditMessage("⏳ *Mengirim renungan...*", {
+        chat_id: chatId,
+        message_id: messageId,
       });
-      return denyAccess(chatId, username);
-    }
 
-    // Jawab callback query
-    bot.answerCallbackQuery(query.id);
+      // Cek apakah ada preview message yang disimpan
+      const savedPreview = previewMessages.get(userId);
+      let sendResult;
 
-    switch (data) {
-      case "menu_schedule":
-        bot.sendMessage(
-          chatId,
-          "� *Kirim Pesan Berjadwal*\n\nPilih tipe penerima:",
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: "👤 Pesan Pribadi",
-                    callback_data: "schedule_private",
-                  },
-                ],
-                [{ text: "👥 Pesan Grup", callback_data: "schedule_group" }],
-                [
-                  {
-                    text: "📢 Siaran/Channel",
-                    callback_data: "schedule_broadcast",
-                  },
-                ],
-                [{ text: "📋 Lihat Jadwal", callback_data: "list_schedule" }],
-                [{ text: "⬅️ Kembali", callback_data: "back_main" }],
-              ],
-            },
-          }
+      if (savedPreview && Date.now() - savedPreview.timestamp < 3600000) {
+        // Gunakan preview yang sudah dibuat (valid 1 jam)
+        sendResult = await renungan.sendRenunganWithMessage(
+          savedPreview.message
         );
-        break;
+        // Tambahkan data verse dari preview
+        sendResult.verse = savedPreview.verse;
+        sendResult.specialDay = savedPreview.specialDay;
+        // Hapus preview setelah dikirim
+        previewMessages.delete(userId);
+      } else {
+        // Generate baru jika tidak ada preview atau sudah expired
+        sendResult = await renungan.sendRenungan();
+      }
 
-      case "schedule_private":
-        handleSchedulePrivate(chatId, userId);
-        break;
-
-      case "schedule_group":
-        handleScheduleGroup(chatId, userId);
-        break;
-
-      case "schedule_broadcast":
-        handleScheduleBroadcast(chatId, userId);
-        break;
-
-      case "add_contact_manual":
-        handleAddContactManual(chatId, userId);
-        break;
-
-      case "add_group_via_link":
-        handleAddGroupViaLink(chatId, userId);
-        break;
-
-      case "add_schedule":
-        bot.sendMessage(
-          chatId,
-          "Masukkan format:\n`nomor@c.us|YYYY-MM-DD HH:mm|teks/foto/pdf|isi pesan`",
-          { parse_mode: "Markdown" }
-        );
-        bot.once("message", async (msg) => {
-          const [to, time, type, ...rest] = msg.text.split("|");
-          const content = rest.join("|").trim();
-
-          const schedules = await fs
-            .readJson("./src/data/schedule.json")
-            .catch(() => []);
-          schedules.push({ to, time, type, content, sent: false });
-          await fs.writeJson("./src/data/schedule.json", schedules, {
-            spaces: 2,
-          });
-
-          bot.sendMessage(chatId, "✅ Jadwal berhasil ditambahkan!");
-        });
-        break;
-
-      case "list_schedule":
-        const list = await fs
-          .readJson("./src/data/schedule.json")
-          .catch(() => []);
-        if (!list.length) return bot.sendMessage(chatId, "Belum ada jadwal.");
-        const msgList = list
-          .map((s, i) => `${i + 1}. ${s.to} | ${s.time} | ${s.type}`)
-          .join("\n");
-        bot.sendMessage(chatId, "📋 Jadwal Tersimpan:\n" + msgList);
-        break;
-
-      case "menu_renungan":
-        bot.sendMessage(
-          chatId,
-          "📖 Renungan otomatis tiap jam " +
-            process.env.RENUNGAN_TIME +
-            " ke grup " +
-            process.env.RENUNGAN_GROUP_ID
-        );
-        break;
-
-      case "menu_birthday":
-        bot.sendMessage(
-          chatId,
-          "🎂 Pengingat ulang tahun aktif jam 7 pagi, data dari Google Sheet."
-        );
-        break;
-
-      case "resync_wa":
-        const resyncMsg = await bot.sendMessage(
-          chatId,
-          "🔄 *Menyinkronkan ulang data WhatsApp...*",
-          { parse_mode: "Markdown" }
-        );
-
-        const resyncData = await syncWhatsAppData(waClient, userId);
-
-        await bot.editMessageText(
-          `✅ *Sinkronisasi Selesai!*\n\n` +
-            `📇 Kontak: ${resyncData.contacts.length}\n` +
-            `👥 Grup: ${resyncData.groups.length}\n\n` +
-            `Data berhasil diperbarui!`,
+      if (sendResult.success) {
+        const specialText = sendResult.specialDay
+          ? `\n🎉 Hari Spesial: ${sendResult.specialDay}`
+          : "";
+        await safeEditMessage(
+          `✅ *Renungan Terkirim!*\n\n📖 Ayat: ${sendResult.verse}${specialText}`,
           {
             chat_id: chatId,
-            message_id: resyncMsg.message_id,
-            parse_mode: "Markdown",
-          }
-        );
-        break;
-
-      case "logout_wa":
-        bot.sendMessage(
-          chatId,
-          "🚪 *Logout WhatsApp*\n\nApakah Anda yakin ingin logout?",
-          {
-            parse_mode: "Markdown",
+            message_id: messageId,
             reply_markup: {
               inline_keyboard: [
-                [
-                  { text: "✅ Ya, Logout", callback_data: "confirm_logout" },
-                  { text: "❌ Batal", callback_data: "back_main" },
-                ],
+                [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
               ],
             },
           }
         );
-        break;
+      } else {
+        await safeEditMessage(
+          `❌ *Gagal Kirim Renungan*\n\n${sendResult.error}`,
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
+              ],
+            },
+          }
+        );
+      }
+      break;
 
-      case "confirm_logout":
-        try {
-          await waClient.logout();
-          adminSessions.delete(userId);
-          await fs.writeJson(
-            "./src/data/admin_sessions.json",
-            Array.from(adminSessions.entries()),
-            { spaces: 2 }
-          );
-
-          bot.sendMessage(
-            chatId,
-            "✅ *Logout Berhasil!*\n\nWhatsApp telah terputus.\n\nKetik /start untuk login kembali.",
-            { parse_mode: "Markdown" }
-          );
-          console.log(`🚪 Admin ${userId} logout dari WhatsApp`);
-        } catch (error) {
-          bot.sendMessage(chatId, "❌ Gagal logout: " + error.message);
+    case "renungan_preview":
+      await safeEditMessage(
+        "⏳ *Generating preview...*\n\nAI sedang membuat renungan...",
+        {
+          chat_id: chatId,
+          message_id: messageId,
         }
-        break;
+      );
 
-      case "back_main":
-        bot.sendMessage(chatId, "🏠 *Menu Utama*\n\nPilih menu:", {
-          parse_mode: "Markdown",
-          ...mainMenu,
+      const preview = await renungan.previewRenungan();
+
+      if (preview.success) {
+        // Simpan preview message untuk user ini
+        previewMessages.set(userId, {
+          message: preview.message,
+          verse: preview.verse,
+          specialDay: preview.specialDay,
+          timestamp: Date.now(),
         });
-        break;
-    }
-  });
 
-  // Handler untuk schedule private (kontak pribadi)
-  async function handleSchedulePrivate(chatId, userId) {
-    const session = adminSessions.get(userId);
+        // Kirim preview tanpa markdown karena sudah diformat untuk WhatsApp
+        await bot.sendMessage(chatId, preview.message);
 
-    const contactButtons = [];
+        const specialText = preview.specialDay
+          ? `\n🎉 Hari Spesial: ${preview.specialDay}`
+          : "";
+        await safeEditMessage(
+          `✅ *Preview Generated*\n\n📖 Ayat: ${preview.verse}${specialText}`,
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "📤 Kirim Ini", callback_data: "renungan_send_now" }],
+                [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
+              ],
+            },
+          }
+        );
+      } else {
+        await safeEditMessage(
+          `❌ *Gagal Generate Preview*\n\n${preview.error}`,
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
+              ],
+            },
+          }
+        );
+      }
+      break;
 
-    // Tambahkan opsi input manual di paling atas
-    contactButtons.push([
-      {
-        text: "📝 Input Nomor Manual (08xxx)",
-        callback_data: "add_contact_manual",
-      },
-    ]);
+    case "renungan_list_verses":
+      return showCategoryMenu(chatId, messageId);
 
-    if (session && session.contacts && session.contacts.length > 0) {
-      // Tampilkan daftar kontak yang sudah ada
-      const existingContacts = session.contacts.slice(0, 50).map((contact) => [
-        {
-          text: `${contact.name} (${contact.number})`,
-          callback_data: `select_contact_${contact.id}`,
-        },
-      ]);
-
-      contactButtons.push(...existingContacts);
-      contactButtons.push([
-        { text: "⬅️ Kembali", callback_data: "menu_schedule" },
-      ]);
-
-      bot.sendMessage(
-        chatId,
-        `👤 *Pilih Kontak Pribadi*\n\nTotal: ${session.contacts.length} kontak\n(Menampilkan 50 pertama)\n\nAtau input nomor manual di tombol atas.`,
-        {
-          parse_mode: "Markdown",
-          reply_markup: { inline_keyboard: contactButtons },
-        }
+    case "renungan_add_verse":
+      userStates.set(userId, { action: "add_verse", step: "verse", data: {} });
+      await safeEditMessage(
+        `➕ *Tambah Ayat Baru*\n\nKirim alamat ayat (contoh: Yohanes 3:16)\n\nKetik "batal" untuk membatalkan.`,
+        { chat_id: chatId, message_id: messageId }
       );
-    } else {
-      // Tidak ada kontak, tampilkan opsi manual dan sync
-      contactButtons.push([
-        { text: "🔄 Sinkronisasi", callback_data: "resync_wa" },
-      ]);
-      contactButtons.push([
-        { text: "⬅️ Kembali", callback_data: "menu_schedule" },
-      ]);
+      break;
 
-      bot.sendMessage(
-        chatId,
-        "👤 *Kontak Pribadi*\n\n📝 Input nomor manual atau sinkronisasi kontak dari WhatsApp.",
+    case "renungan_reset":
+      await renungan.resetVersesStatus();
+      await safeEditMessage(
+        "✅ *Status ayat berhasil direset!*\n\nSemua ayat ditandai belum dipakai.",
         {
-          parse_mode: "Markdown",
-          reply_markup: { inline_keyboard: contactButtons },
-        }
-      );
-    }
-  }
-
-  // Handler input nomor manual
-  async function handleAddContactManual(chatId, userId) {
-    bot.sendMessage(
-      chatId,
-      `📝 *Input Nomor Manual*\n\n` +
-        `Masukkan nomor WhatsApp tujuan:\n\n` +
-        `Format yang didukung:\n` +
-        `• 08123456789\n` +
-        `• 628123456789\n` +
-        `• +628123456789\n\n` +
-        `Atau ketik "batal" untuk kembali.`,
-      { parse_mode: "Markdown" }
-    );
-
-    const inputHandler = async (msg) => {
-      if (msg.chat.id !== chatId || msg.from.id !== userId) return;
-
-      bot.removeListener("message", inputHandler);
-
-      if (msg.text.toLowerCase() === "batal") {
-        return handleSchedulePrivate(chatId, userId);
-      }
-
-      // Clean & format nomor
-      let number = msg.text.trim().replace(/\D/g, ""); // Hapus non-digit
-
-      // Convert 08xxx ke 628xxx
-      if (number.startsWith("08")) {
-        number = "62" + number.substring(1);
-      } else if (number.startsWith("8")) {
-        number = "62" + number;
-      } else if (!number.startsWith("62")) {
-        return bot.sendMessage(
-          chatId,
-          "❌ Format nomor tidak valid. Gunakan format: 08xxx atau 628xxx",
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "🔄 Coba Lagi", callback_data: "add_contact_manual" }],
-              ],
-            },
-          }
-        );
-      }
-
-      const waId = `${number}@c.us`;
-
-      // Cek apakah nomor valid di WhatsApp
-      try {
-        const isRegistered = await waClient.isRegisteredUser(waId);
-
-        if (!isRegistered) {
-          return bot.sendMessage(
-            chatId,
-            `❌ Nomor ${number} tidak terdaftar di WhatsApp.\n\nPastikan nomor benar dan aktif di WhatsApp.`,
-            {
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: "🔄 Coba Lagi",
-                      callback_data: "add_contact_manual",
-                    },
-                  ],
-                ],
-              },
-            }
-          );
-        }
-
-        // Nomor valid, simpan sementara untuk setup message
-        const session = adminSessions.get(userId) || {
-          contacts: [],
-          groups: [],
-        };
-
-        // Tambahkan ke kontak jika belum ada
-        if (!session.contacts.find((c) => c.id === waId)) {
-          session.contacts.push({
-            id: waId,
-            name: number,
-            number: number,
-          });
-          adminSessions.set(userId, session);
-          await fs.writeJson(
-            "./src/data/admin_sessions.json",
-            Array.from(adminSessions.entries()),
-            { spaces: 2 }
-          );
-        }
-
-        bot.sendMessage(
-          chatId,
-          `✅ *Nomor Valid!*\n\n📱 ${number}\n\n📅 Sekarang atur jadwal dan pesan...`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: "📝 Atur Pesan",
-                    callback_data: `setup_message_${waId}`,
-                  },
-                ],
-                [{ text: "⬅️ Kembali", callback_data: "menu_schedule" }],
-              ],
-            },
-          }
-        );
-      } catch (error) {
-        bot.sendMessage(
-          chatId,
-          `❌ Error memeriksa nomor: ${error.message}\n\nSilakan coba lagi.`,
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "🔄 Coba Lagi", callback_data: "add_contact_manual" }],
-              ],
-            },
-          }
-        );
-      }
-    };
-
-    bot.on("message", inputHandler);
-  }
-
-  // Handler untuk schedule group
-  async function handleScheduleGroup(chatId, userId) {
-    const session = adminSessions.get(userId);
-
-    const groupButtons = [];
-
-    // Tambahkan opsi join grup via link
-    groupButtons.push([
-      { text: "🔗 Join Grup Via Link", callback_data: "add_group_via_link" },
-    ]);
-
-    if (session && session.groups && session.groups.length > 0) {
-      // Tampilkan daftar grup
-      const existingGroups = session.groups.map((group) => [
-        {
-          text: `${group.name} (${group.participants} anggota)`,
-          callback_data: `select_group_${group.id}`,
-        },
-      ]);
-
-      groupButtons.push(...existingGroups);
-      groupButtons.push([
-        { text: "⬅️ Kembali", callback_data: "menu_schedule" },
-      ]);
-
-      bot.sendMessage(
-        chatId,
-        `👥 *Pilih Grup*\n\nTotal: ${session.groups.length} grup\n\nAtau join grup baru via link.`,
-        {
-          parse_mode: "Markdown",
-          reply_markup: { inline_keyboard: groupButtons },
-        }
-      );
-    } else {
-      groupButtons.push([
-        { text: "🔄 Sinkronisasi", callback_data: "resync_wa" },
-      ]);
-      groupButtons.push([
-        { text: "⬅️ Kembali", callback_data: "menu_schedule" },
-      ]);
-
-      bot.sendMessage(
-        chatId,
-        "👥 *Grup WhatsApp*\n\n🔗 Join grup via link atau sinkronisasi grup yang sudah ada.",
-        {
-          parse_mode: "Markdown",
-          reply_markup: { inline_keyboard: groupButtons },
-        }
-      );
-    }
-  }
-
-  // Handler join grup via link
-  async function handleAddGroupViaLink(chatId, userId) {
-    bot.sendMessage(
-      chatId,
-      `🔗 *Join Grup Via Link*\n\n` +
-        `Kirimkan link invite grup WhatsApp:\n\n` +
-        `Contoh:\n` +
-        `• https://chat.whatsapp.com/AbCdEfGh...\n\n` +
-        `Atau ketik "batal" untuk kembali.`,
-      { parse_mode: "Markdown" }
-    );
-
-    const linkHandler = async (msg) => {
-      if (msg.chat.id !== chatId || msg.from.id !== userId) return;
-
-      bot.removeListener("message", linkHandler);
-
-      if (msg.text.toLowerCase() === "batal") {
-        return handleScheduleGroup(chatId, userId);
-      }
-
-      const inviteLink = msg.text.trim();
-
-      // Validasi link
-      if (!inviteLink.includes("chat.whatsapp.com/")) {
-        return bot.sendMessage(
-          chatId,
-          "❌ Link tidak valid. Pastikan link mengandung 'chat.whatsapp.com/'",
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "🔄 Coba Lagi", callback_data: "add_group_via_link" }],
-              ],
-            },
-          }
-        );
-      }
-
-      try {
-        // Extract invite code
-        const inviteCode = inviteLink
-          .split("chat.whatsapp.com/")[1]
-          .split("?")[0];
-
-        bot.sendMessage(chatId, "⏳ Mencoba join grup...");
-
-        // Join grup
-        const result = await waClient.acceptInvite(inviteCode);
-
-        // Get grup info
-        const chat = await waClient.getChatById(result);
-
-        // Simpan ke session
-        const session = adminSessions.get(userId) || {
-          contacts: [],
-          groups: [],
-        };
-
-        const newGroup = {
-          id: chat.id._serialized,
-          name: chat.name || "Unnamed Group",
-          participants: chat.participants ? chat.participants.length : 0,
-        };
-
-        // Tambahkan jika belum ada
-        if (!session.groups.find((g) => g.id === newGroup.id)) {
-          session.groups.push(newGroup);
-          session.groups.sort((a, b) =>
-            String(a.name).localeCompare(String(b.name))
-          );
-          adminSessions.set(userId, session);
-          await fs.writeJson(
-            "./src/data/admin_sessions.json",
-            Array.from(adminSessions.entries()),
-            { spaces: 2 }
-          );
-        }
-
-        bot.sendMessage(
-          chatId,
-          `✅ *Berhasil Join Grup!*\n\n👥 ${newGroup.name}\n👤 ${newGroup.participants} anggota\n\n📅 Sekarang atur jadwal dan pesan...`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: "📝 Atur Pesan",
-                    callback_data: `setup_message_${newGroup.id}`,
-                  },
-                ],
-                [{ text: "⬅️ Kembali", callback_data: "menu_schedule" }],
-              ],
-            },
-          }
-        );
-
-        console.log(`✅ Admin ${userId} join grup: ${newGroup.name}`);
-      } catch (error) {
-        bot.sendMessage(
-          chatId,
-          `❌ Gagal join grup: ${error.message}\n\nPastikan link valid dan bot belum join grup ini.`,
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "🔄 Coba Lagi", callback_data: "add_group_via_link" }],
-              ],
-            },
-          }
-        );
-      }
-    };
-
-    bot.on("message", linkHandler);
-  }
-
-  // Handler untuk broadcast
-  async function handleScheduleBroadcast(chatId, userId) {
-    bot.sendMessage(
-      chatId,
-      `📢 *Siaran/Broadcast*\n\nMasukkan nomor tujuan (pisahkan dengan koma jika lebih dari 1):\n\nFormat:\n\`6281234567890,6289876543210\`\n\nAtau ketik "batal" untuk kembali.`,
-      { parse_mode: "Markdown" }
-    );
-
-    // Tunggu input dari user
-    const messageHandler = async (msg) => {
-      if (msg.chat.id !== chatId) return;
-
-      bot.removeListener("message", messageHandler);
-
-      if (msg.text.toLowerCase() === "batal") {
-        return bot.sendMessage(chatId, "❌ Dibatalkan", {
+          chat_id: chatId,
+          message_id: messageId,
           reply_markup: {
             inline_keyboard: [
-              [{ text: "⬅️ Kembali", callback_data: "menu_schedule" }],
+              [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
+            ],
+          },
+        }
+      );
+      break;
+  }
+}
+
+/**
+ * Tampilkan menu kategori ayat
+ */
+async function showCategoryMenu(chatId, messageId) {
+  const verses = await renungan.getAllVerses();
+
+  // Hitung jumlah ayat per kategori
+  const categoryCount = {};
+  verses.forEach((v) => {
+    const cat = v.category || "umum";
+    categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+  });
+
+  // Nama kategori yang lebih ramah
+  const categoryNames = {
+    kasih: "❤️ Kasih",
+    iman: "✝️ Iman",
+    harapan: "✨ Harapan",
+    kekuatan: "💪 Kekuatan",
+    penghiburan: "🤗 Penghiburan",
+    doa: "🙏 Doa",
+    hikmat: "⚖️ Hikmat",
+    damai: "🕊️ Damai Sejahtera",
+    pertobatan: "🔥 Pertobatan",
+    pertumbuhan_rohani: "🌱 Pertumbuhan Rohani",
+    umum: "📖 Umum",
+  };
+
+  let message = "📚 *Pilih Kategori Ayat*\n\n";
+
+  const keyboard = [];
+
+  // Urutkan kategori berdasarkan jumlah ayat (terbanyak di atas)
+  const sortedCategories = Object.entries(categoryCount).sort(
+    (a, b) => b[1] - a[1]
+  );
+
+  // Buat tombol kategori (2 kolom)
+  for (let i = 0; i < sortedCategories.length; i += 2) {
+    const row = [];
+
+    const cat1 = sortedCategories[i][0];
+    const count1 = sortedCategories[i][1];
+    row.push({
+      text: `${categoryNames[cat1] || cat1} (${count1})`,
+      callback_data: `verses_cat_${cat1}`,
+    });
+
+    if (i + 1 < sortedCategories.length) {
+      const cat2 = sortedCategories[i + 1][0];
+      const count2 = sortedCategories[i + 1][1];
+      row.push({
+        text: `${categoryNames[cat2] || cat2} (${count2})`,
+        callback_data: `verses_cat_${cat2}`,
+      });
+    }
+
+    keyboard.push(row);
+  }
+
+  // Tombol "Semua Ayat"
+  keyboard.push([
+    {
+      text: `📜 Semua Ayat (${verses.length})`,
+      callback_data: "verses_cat_all",
+    },
+  ]);
+
+  keyboard.push([
+    {
+      text: "⬅️ Kembali",
+      callback_data: "menu_renungan",
+    },
+  ]);
+
+  return safeEditMessage(message, {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: {
+      inline_keyboard: keyboard,
+    },
+  });
+}
+
+async function showVersesList(chatId, messageId, page, category = null) {
+  const allVerses = await renungan.getAllVerses();
+
+  // Filter berdasarkan kategori jika ada
+  const verses =
+    category && category !== "all"
+      ? allVerses.filter((v) => v.category === category)
+      : allVerses;
+
+  const perPage = 5;
+  const totalPages = Math.ceil(verses.length / perPage);
+  const start = page * perPage;
+  const end = start + perPage;
+  const pageVerses = verses.slice(start, end);
+
+  // Nama kategori untuk header
+  const categoryNames = {
+    kasih: "❤️ Kasih",
+    iman: "✝️ Iman",
+    harapan: "✨ Harapan",
+    kekuatan: "💪 Kekuatan",
+    penghiburan: "🤗 Penghiburan",
+    doa: "🙏 Doa",
+    hikmat: "⚖️ Hikmat",
+    damai: "🕊️ Damai Sejahtera",
+    pertobatan: "🔥 Pertobatan",
+    pertumbuhan_rohani: "🌱 Pertumbuhan Rohani",
+    umum: "📖 Umum",
+  };
+
+  const categoryTitle =
+    category && category !== "all"
+      ? categoryNames[category] || category
+      : "📜 Semua Kategori";
+
+  // Format tanpa underscore yang menyebabkan error
+  let message = `📝 *Daftar Ayat*\n${categoryTitle}\n\nHalaman ${
+    page + 1
+  }/${totalPages}\n\n`;
+
+  pageVerses.forEach((v, i) => {
+    const status = v.used ? "✅" : "⭕";
+    message += `${status} ${start + i + 1}. ${v.verse}\n`;
+    if (category === "all" || !category) {
+      // Tampilkan kategori jika melihat semua ayat
+      const cat = v.category || "umum";
+      const safeCat = cat.replace(/_/g, " ");
+      message += `   📁 ${safeCat}\n`;
+    }
+    message += `\n`;
+  });
+
+  const navButtons = [];
+  if (page > 0) {
+    navButtons.push({
+      text: "⬅️ Prev",
+      callback_data: category
+        ? `verse_cat_${category}_page_${page - 1}`
+        : `verse_page_${page - 1}`,
+    });
+  }
+  if (page < totalPages - 1) {
+    navButtons.push({
+      text: "Next ➡️",
+      callback_data: category
+        ? `verse_cat_${category}_page_${page + 1}`
+        : `verse_page_${page + 1}`,
+    });
+  }
+
+  const keyboard = {
+    reply_markup: {
+      inline_keyboard: [
+        navButtons.length > 0 ? navButtons : [],
+        [
+          {
+            text: "🔙 Pilih Kategori Lain",
+            callback_data: "renungan_list_verses",
+          },
+        ],
+        [{ text: "➕ Tambah Ayat", callback_data: "renungan_add_verse" }],
+        [{ text: "⬅️ Menu Utama", callback_data: "menu_renungan" }],
+      ].filter((row) => row.length > 0),
+    },
+  };
+
+  // Kirim tanpa parse_mode karena tidak ada formatting
+  return bot.editMessageText(message, {
+    chat_id: chatId,
+    message_id: messageId,
+    ...keyboard,
+  });
+}
+
+async function handleVerseCallback(data, chatId, messageId) {
+  // Handle category selection
+  if (data.startsWith("verses_cat_")) {
+    const category = data.replace("verses_cat_", "");
+    return showVersesList(chatId, messageId, 0, category);
+  }
+
+  // Handle pagination with category
+  if (data.includes("_cat_") && data.includes("_page_")) {
+    const parts = data.replace("verse_cat_", "").split("_page_");
+    const category = parts[0];
+    const page = parseInt(parts[1]);
+    return showVersesList(chatId, messageId, page, category);
+  }
+
+  // Handle pagination without category
+  if (data.startsWith("verse_page_")) {
+    const page = parseInt(data.replace("verse_page_", ""));
+    return showVersesList(chatId, messageId, page);
+  }
+
+  if (data.startsWith("verse_delete_")) {
+    const id = parseInt(data.replace("verse_delete_", ""));
+    await renungan.deleteVerse(id);
+    return showVersesList(chatId, messageId, 0);
+  }
+}
+
+async function handleCategoryCallback(data, chatId, messageId, userId) {
+  const category = data.replace("cat_", "");
+  const state = userStates.get(userId);
+
+  if (!state || state.action !== "add_verse") return;
+
+  const result = await renungan.addVerse(state.data.verse, category);
+
+  userStates.delete(userId);
+
+  if (result.success) {
+    await safeSendMessage(
+      chatId,
+      `✅ *Ayat Berhasil Ditambahkan!*\n\n📖 ${state.data.verse}\n📁 Kategori: ${category}`
+    );
+  } else {
+    await safeSendMessage(
+      chatId,
+      `❌ *Gagal Menambahkan Ayat*\n\n${result.error}`
+    );
+  }
+
+  await showRenunganMenu(chatId, null);
+}
+
+// ============================================
+// BIRTHDAY MENU
+// ============================================
+
+async function showBirthdayMenu(chatId, messageId) {
+  const config = await loadConfig();
+  const upcoming = await birthday.getUpcoming(7);
+  const today = await sheets.getBirthdaysToday();
+
+  let upcomingText = "Tidak ada";
+  if (upcoming.length > 0) {
+    upcomingText = upcoming
+      .slice(0, 5)
+      .map((b) => `• ${b.name} (${b.fullDate})`)
+      .join("\n");
+  }
+
+  const groupDisplay = config.birthdayGroupId || "Personal";
+
+  const message = `🎂 *Menu Ulang Tahun*
+
+⏰ Jadwal Cek: ${config.birthdayTime || "07:00"} WITA
+👥 Group: ${groupDisplay.substring(0, 20)}...
+
+🎉 Hari Ini: ${today.length} orang
+${today.length > 0 ? today.map((t) => `  • ${t.name}`).join("\n") : ""}
+
+📅 7 Hari ke Depan:
+${upcomingText}
+
+Pilih aksi:`;
+
+  const keyboard = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "📤 Kirim Ucapan Sekarang",
+            callback_data: "birthday_send_now",
+          },
+        ],
+        [{ text: "📋 Lihat Semua Data", callback_data: "birthday_view_all" }],
+        [
+          {
+            text: "📊 Info Google Sheet",
+            callback_data: "birthday_sheet_info",
+          },
+        ],
+        [{ text: "⏰ Atur Jadwal", callback_data: "settings_birthday_time" }],
+        [{ text: "⬅️ Kembali", callback_data: "back_main" }],
+      ],
+    },
+  };
+
+  if (messageId) {
+    return safeEditMessage(message, {
+      chat_id: chatId,
+      message_id: messageId,
+      ...keyboard,
+    });
+  }
+
+  return safeSendMessage(chatId, message, keyboard);
+}
+
+async function handleBirthdayCallback(data, chatId, messageId) {
+  switch (data) {
+    case "birthday_send_now":
+      await safeEditMessage("⏳ *Mengirim ucapan ulang tahun...*", {
+        chat_id: chatId,
+        message_id: messageId,
+      });
+
+      const result = await birthday.processBirthdays();
+
+      if (result.success) {
+        let resultMsg = `✅ *Proses Selesai*\n\n`;
+        if (result.count === 0) {
+          resultMsg += "Tidak ada yang berulang tahun hari ini.";
+        } else {
+          resultMsg += `🎂 Total: ${result.count} orang\n`;
+          resultMsg += `✅ Terkirim: ${result.sent}\n`;
+          resultMsg += `❌ Gagal: ${result.failed}`;
+        }
+
+        await safeEditMessage(resultMsg, {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "⬅️ Kembali", callback_data: "menu_birthday" }],
+            ],
+          },
+        });
+      } else {
+        await safeEditMessage(`❌ *Gagal*\n\n${result.error}`, {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "⬅️ Kembali", callback_data: "menu_birthday" }],
             ],
           },
         });
       }
+      break;
 
-      // Process broadcast numbers
-      const numbers = msg.text
-        .split(",")
-        .map((n) => n.trim())
-        .filter((n) => n);
+    case "birthday_view_all":
+      const all = await sheets.getAllBirthdays();
+      let allMsg = `📋 Data Ulang Tahun (${all.length} orang)\n\n`;
 
-      if (numbers.length === 0) {
-        return bot.sendMessage(
-          chatId,
-          "❌ Format nomor tidak valid. Coba lagi dengan /start"
-        );
+      if (all.length === 0) {
+        allMsg += "Belum ada data.";
+      } else {
+        const sorted = all.sort((a, b) => {
+          const dateA = moment(a.date, ["DD-MM", "DD/MM"]);
+          const dateB = moment(b.date, ["DD-MM", "DD/MM"]);
+          return dateA.month() - dateB.month() || dateA.date() - dateB.date();
+        });
+
+        sorted.slice(0, 20).forEach((b, i) => {
+          allMsg += `${i + 1}. ${b.name} - ${b.date}\n`;
+        });
+
+        if (all.length > 20) {
+          allMsg += `\n... dan ${all.length - 20} lainnya`;
+        }
       }
 
-      bot.sendMessage(
-        chatId,
-        `✅ ${numbers.length} nomor siap untuk broadcast!\n\nLanjutkan dengan mengatur jadwal dan pesan.`,
+      await bot.editMessageText(allMsg, {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "⬅️ Kembali", callback_data: "menu_birthday" }],
+          ],
+        },
+      });
+      break;
+
+    case "birthday_sheet_info":
+      const info = await sheets.getSpreadsheetInfo();
+
+      if (info) {
+        await safeEditMessage(
+          `📊 *Info Google Sheet*\n\n📄 Nama: ${
+            info.title
+          }\n📑 Sheets: ${info.sheets.join(", ")}`,
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "⬅️ Kembali", callback_data: "menu_birthday" }],
+              ],
+            },
+          }
+        );
+      } else {
+        await safeEditMessage(
+          "❌ *Gagal mengambil info sheet*\n\nPastikan credentials dan SPREADSHEET ID sudah benar.",
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "⬅️ Kembali", callback_data: "menu_birthday" }],
+              ],
+            },
+          }
+        );
+      }
+      break;
+  }
+}
+
+// ============================================
+// SETTINGS MENU
+// ============================================
+
+async function showSettingsMenu(chatId, messageId) {
+  const config = await loadConfig();
+  const waConnected = await wa.isConnected();
+
+  const message = `⚙️ *Pengaturan Bot*
+
+📱 WhatsApp: ${waConnected ? "Terhubung" : "Tidak Terhubung"}
+
+📖 Renungan:
+• Waktu: ${config.renunganTime || "08:00"} WITA
+• Group ID: ${config.renunganGroupId ? "Sudah diatur" : "Belum diatur"}
+
+🎂 Ulang Tahun:
+• Waktu: ${config.birthdayTime || "07:00"} WITA
+• Group ID: ${config.birthdayGroupId ? "Sudah diatur" : "Personal"}
+
+🤖 AI Provider: ${getProvider().toUpperCase()}
+💡 Model: ${process.env.AI_MODEL}
+
+Pilih pengaturan:`;
+
+  const keyboard = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "📖 Atur Group Renungan",
+            callback_data: "settings_renungan_group",
+          },
+        ],
+        [
+          {
+            text: "🎂 Atur Group Birthday",
+            callback_data: "settings_birthday_group",
+          },
+        ],
+        [
+          {
+            text: "⏰ Atur Jadwal Renungan",
+            callback_data: "settings_renungan_time",
+          },
+        ],
+        [
+          {
+            text: "⏰ Atur Jadwal Birthday",
+            callback_data: "settings_birthday_time",
+          },
+        ],
+        [{ text: "🤖 Test AI Connection", callback_data: "settings_test_ai" }],
+        [{ text: "📱 WhatsApp Login/Logout", callback_data: "settings_wa" }],
+        [{ text: "⬅️ Kembali", callback_data: "back_main" }],
+      ],
+    },
+  };
+
+  if (messageId) {
+    return safeEditMessage(message, {
+      chat_id: chatId,
+      message_id: messageId,
+      ...keyboard,
+    });
+  }
+
+  return safeSendMessage(chatId, message, keyboard);
+}
+
+async function handleSettingsCallback(data, chatId, messageId, userId) {
+  switch (data) {
+    case "settings_renungan_group":
+      userStates.set(userId, { action: "set_renungan_group" });
+      await safeEditMessage(
+        `⚙️ *Atur Group ID Renungan*
+
+Kirim salah satu dari:
+
+1️⃣ *Link Invite WhatsApp*
+   https://chat.whatsapp.com/xxxxx
+   _Bot akan otomatis join dan ambil Group ID_
+
+2️⃣ *Group ID Langsung*
+   Format: 6281234567890-1234567890@g.us
+
+Ketik "batal" untuk membatalkan.`,
+        { chat_id: chatId, message_id: messageId }
+      );
+      break;
+
+    case "settings_birthday_group":
+      userStates.set(userId, { action: "set_birthday_group" });
+      await safeEditMessage(
+        `⚙️ *Atur Group ID Birthday*
+
+Kirim salah satu dari:
+
+1️⃣ *Link Invite WhatsApp*
+   https://chat.whatsapp.com/xxxxx
+   _Bot akan otomatis join dan ambil Group ID_
+
+2️⃣ *Group ID Langsung*
+   Format: 6281234567890-1234567890@g.us
+
+3️⃣ Ketik "personal" untuk kirim ke masing-masing
+
+Ketik "batal" untuk membatalkan.`,
+        { chat_id: chatId, message_id: messageId }
+      );
+      break;
+
+    case "settings_renungan_time":
+      await safeEditMessage(
+        "⏰ *Pilih Waktu Renungan*\n\nPilih jam pengiriman renungan harian:",
         {
+          chat_id: chatId,
+          message_id: messageId,
           reply_markup: {
             inline_keyboard: [
               [
-                {
-                  text: "📅 Atur Jadwal",
-                  callback_data: "set_broadcast_schedule",
-                },
+                { text: "06:00", callback_data: "time_renungan_06:00" },
+                { text: "07:00", callback_data: "time_renungan_07:00" },
+                { text: "08:00", callback_data: "time_renungan_08:00" },
               ],
-              [{ text: "⬅️ Kembali", callback_data: "menu_schedule" }],
+              [
+                { text: "09:00", callback_data: "time_renungan_09:00" },
+                { text: "10:00", callback_data: "time_renungan_10:00" },
+              ],
+              [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
             ],
           },
         }
       );
+      break;
 
-      // Simpan sementara ke session
-      const session = adminSessions.get(userId);
-      if (session) {
-        session.broadcastNumbers = numbers;
-      }
-    };
-
-    bot.on("message", messageHandler);
-  }
-
-  // Handler ketika kontak atau grup dipilih
-  bot.on("callback_query", async (query) => {
-    const data = query.data;
-
-    // Handle contact selection
-    if (data.startsWith("select_contact_")) {
-      const contactId = data.replace("select_contact_", "");
-      const session = adminSessions.get(query.from.id);
-      const contact = session.contacts.find((c) => c.id === contactId);
-
-      if (contact) {
-        bot.answerCallbackQuery(query.id, { text: `Dipilih: ${contact.name}` });
-
-        bot.sendMessage(
-          query.message.chat.id,
-          `✅ *Kontak Dipilih:*\n${contact.name}\n\n📅 Sekarang atur jadwal dan pesan...`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: "📝 Atur Pesan",
-                    callback_data: `setup_message_${contactId}`,
-                  },
-                ],
-                [{ text: "⬅️ Kembali", callback_data: "menu_schedule" }],
-              ],
-            },
-          }
-        );
-      }
-    }
-
-    // Handle group selection
-    if (data.startsWith("select_group_")) {
-      const groupId = data.replace("select_group_", "");
-      const session = adminSessions.get(query.from.id);
-      const group = session.groups.find((g) => g.id === groupId);
-
-      if (group) {
-        bot.answerCallbackQuery(query.id, { text: `Dipilih: ${group.name}` });
-
-        bot.sendMessage(
-          query.message.chat.id,
-          `✅ *Grup Dipilih:*\n${group.name}\n\n📅 Sekarang atur jadwal dan pesan...`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: "📝 Atur Pesan",
-                    callback_data: `setup_message_${groupId}`,
-                  },
-                ],
-                [{ text: "⬅️ Kembali", callback_data: "menu_schedule" }],
-              ],
-            },
-          }
-        );
-      }
-    }
-
-    // Handle setup message
-    if (data.startsWith("setup_message_")) {
-      const targetId = data.replace("setup_message_", "");
-
-      bot.sendMessage(
-        query.message.chat.id,
-        `📝 *Atur Pesan Berjadwal*\n\n` +
-          `Format lengkap:\n` +
-          `\`YYYY-MM-DD HH:mm|tipe|isi pesan\`\n\n` +
-          `Tipe: teks, foto, file\n\n` +
-          `Contoh teks:\n` +
-          `\`2025-11-15 10:30|teks|Selamat pagi!\`\n\n` +
-          `Contoh foto:\n` +
-          `\`2025-11-15 10:30|foto|nama_file.jpg|Caption foto\``,
+    case "settings_birthday_time":
+      await safeEditMessage(
+        "⏰ *Pilih Waktu Birthday*\n\nPilih jam pengiriman ucapan ulang tahun:",
         {
-          parse_mode: "Markdown",
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: "06:00", callback_data: "time_birthday_06:00" },
+                { text: "07:00", callback_data: "time_birthday_07:00" },
+                { text: "08:00", callback_data: "time_birthday_08:00" },
+              ],
+              [
+                { text: "09:00", callback_data: "time_birthday_09:00" },
+                { text: "10:00", callback_data: "time_birthday_10:00" },
+              ],
+              [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
+            ],
+          },
         }
       );
+      break;
 
-      // Tunggu input jadwal
-      const scheduleHandler = async (msg) => {
-        if (msg.chat.id !== query.message.chat.id) return;
+    case "settings_test_ai":
+      await safeEditMessage("⏳ Testing AI connection...", {
+        chat_id: chatId,
+        message_id: messageId,
+      });
 
-        bot.removeListener("message", scheduleHandler);
+      const aiResult = await testAIConnection();
 
-        try {
-          const parts = msg.text.split("|");
-
-          if (parts.length < 3) {
-            throw new Error("Format tidak lengkap");
+      if (aiResult.success) {
+        await safeEditMessage(
+          `✅ *AI Connected!*\n\nModel: ${aiResult.model}`,
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
+              ],
+            },
           }
+        );
+      } else {
+        await safeEditMessage(`❌ *AI Error*\n\n${aiResult.error}`, {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
+            ],
+          },
+        });
+      }
+      break;
 
-          const [datetime, type, ...contentParts] = parts;
-          const content = contentParts.join("|").trim();
+    case "settings_wa":
+      const waConnected = await wa.isConnected();
 
-          // Validasi datetime
-          const scheduleMoment = moment(datetime.trim(), "YYYY-MM-DD HH:mm");
-          if (!scheduleMoment.isValid()) {
-            throw new Error("Format tanggal/waktu tidak valid");
+      if (waConnected) {
+        await safeEditMessage(
+          `📱 *WhatsApp Terhubung*\n\nApakah Anda ingin logout?`,
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "🚪 Logout", callback_data: "wa_logout" }],
+                [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
+              ],
+            },
           }
+        );
+      } else {
+        await safeEditMessage(
+          `📱 *WhatsApp Tidak Terhubung*\n\nKlik untuk login:`,
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "📱 Login WhatsApp", callback_data: "wa_login" }],
+                [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
+              ],
+            },
+          }
+        );
+      }
+      break;
+  }
+}
 
-          // Simpan jadwal
-          const schedules = await fs
-            .readJson("./src/data/schedule.json")
-            .catch(() => []);
-          schedules.push({
-            to: targetId,
-            time: scheduleMoment.format("YYYY-MM-DD HH:mm"),
-            type: type.trim(),
-            content: content,
-            sent: false,
-            createdBy: query.from.id,
-            createdAt: new Date().toISOString(),
-          });
+async function handleTimeCallback(data, chatId, messageId) {
+  // Format: time_renungan_08:00 atau time_birthday_07:00
+  const parts = data.replace("time_", "").split("_");
+  const type = parts[0]; // renungan atau birthday
+  const time = parts[1]; // 08:00
 
-          await fs.writeJson("./src/data/schedule.json", schedules, {
-            spaces: 2,
-          });
+  const config = await loadConfig();
 
-          bot.sendMessage(
-            msg.chat.id,
-            `✅ *Jadwal Berhasil Ditambahkan!*\n\n` +
-              `📅 Waktu: ${scheduleMoment.format("DD MMM YYYY, HH:mm")}\n` +
-              `📝 Tipe: ${type}\n` +
-              `💬 Pesan: ${content.substring(0, 50)}${
-                content.length > 50 ? "..." : ""
-              }`,
-            {
-              parse_mode: "Markdown",
-              reply_markup: {
-                inline_keyboard: [
-                  [{ text: "🏠 Menu Utama", callback_data: "back_main" }],
-                ],
-              },
-            }
-          );
+  try {
+    if (type === "renungan") {
+      config.renunganTime = time;
+      await saveConfig(config);
 
-          console.log(`✅ Jadwal baru ditambahkan oleh admin ${query.from.id}`);
-        } catch (error) {
-          bot.sendMessage(
-            msg.chat.id,
-            `❌ *Error:* ${error.message}\n\nSilakan coba lagi dengan format yang benar.`,
-            {
-              parse_mode: "Markdown",
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: "🔄 Coba Lagi",
-                      callback_data: `setup_message_${targetId}`,
-                    },
-                  ],
-                ],
-              },
-            }
-          );
+      // Restart scheduler langsung tanpa restart bot
+      renungan.restartRenunganScheduler(time);
+
+      await safeEditMessage(
+        `✅ *Jadwal Renungan Diperbarui!*\n\nWaktu: ${time} WITA\n\n✨ Scheduler sudah aktif, tidak perlu restart bot!`,
+        {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
+            ],
+          },
         }
-      };
+      );
+    } else if (type === "birthday") {
+      config.birthdayTime = time;
+      await saveConfig(config);
 
-      bot.on("message", scheduleHandler);
+      // Restart scheduler langsung tanpa restart bot
+      birthday.restartBirthdayScheduler(time);
+
+      await safeEditMessage(
+        `✅ *Jadwal Birthday Diperbarui!*\n\nWaktu: ${time} WITA\n\n✨ Scheduler sudah aktif, tidak perlu restart bot!`,
+        {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
+            ],
+          },
+        }
+      );
     }
+  } catch (error) {
+    await safeEditMessage(`❌ *Gagal Update Jadwal*\n\n${error.message}`, {
+      chat_id: chatId,
+      message_id: messageId,
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
+        ],
+      },
+    });
+  }
+}
+
+async function handleWACallback(data, chatId, messageId, userId) {
+  switch (data) {
+    case "wa_login":
+      wa.setAdminChatId(userId, chatId);
+      await safeEditMessage(
+        `📱 *Login WhatsApp*\n\n⏳ Menunggu QR Code...\n\nQR akan dikirim dalam beberapa saat.`,
+        {
+          chat_id: chatId,
+          message_id: messageId,
+        }
+      );
+      break;
+
+    case "wa_logout":
+      try {
+        await wa.logout();
+        await safeEditMessage(
+          `✅ *Logout Berhasil*\n\nWhatsApp telah terputus.`,
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
+              ],
+            },
+          }
+        );
+      } catch (error) {
+        await safeEditMessage(`❌ *Gagal Logout*\n\n${error.message}`, {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
+            ],
+          },
+        });
+      }
+      break;
+  }
+}
+
+// ============================================
+// STATUS
+// ============================================
+
+async function showStatus(chatId, messageId = null) {
+  const waConnected = await wa.isConnected();
+  const waState = wa.getConnectionState();
+  const stats = await renungan.getVersesStats();
+  const todayBirthdays = await sheets.getBirthdaysToday();
+  const config = await loadConfig();
+
+  const message = `📊 *Status Bot*
+
+📱 WhatsApp:
+• Status: ${getStatusEmoji(waConnected)} ${
+    waConnected ? "Terhubung" : "Tidak Terhubung"
+  }
+• State: ${waState}
+
+📖 Renungan:
+• Ayat tersedia: ${stats.unused}/${stats.total}
+• Jadwal: ${config.renunganTime || "08:00"} WITA
+
+🎂 Ulang Tahun:
+• Hari ini: ${todayBirthdays.length} orang
+• Jadwal: ${config.birthdayTime || "07:00"} WITA
+
+🤖 AI: ${getProvider()} (${process.env.AI_MODEL})
+
+⏰ Server:
+• Waktu: ${moment().format("HH:mm:ss")}
+• Tanggal: ${moment().format("DD/MM/YYYY")}
+• Timezone: ${process.env.TIMEZONE || "Asia/Makassar"}`;
+
+  const keyboard = {
+    reply_markup: {
+      inline_keyboard: [[{ text: "⬅️ Kembali", callback_data: "back_main" }]],
+    },
+  };
+
+  if (messageId) {
+    return safeEditMessage(message, {
+      chat_id: chatId,
+      message_id: messageId,
+      ...keyboard,
+    });
+  }
+
+  return safeSendMessage(chatId, message, keyboard);
+}
+
+// ============================================
+// MESSAGE HANDLERS
+// ============================================
+
+bot.on("message", async (msg) => {
+  if (!msg.text || msg.text.startsWith("/")) return;
+
+  const userId = msg.from.id;
+  const chatId = msg.chat.id;
+  const text = msg.text.trim();
+
+  if (!isAdmin(userId)) return;
+
+  const state = userStates.get(userId);
+  if (!state) return;
+
+  // Handle cancel
+  if (text.toLowerCase() === "batal") {
+    userStates.delete(userId);
+    return showMainMenu(chatId, userId);
+  }
+
+  try {
+    switch (state.action) {
+      case "add_verse":
+        await handleAddVerseInput(userId, chatId, text, state);
+        break;
+
+      case "set_renungan_group":
+        let groupId = text;
+
+        // Cek apakah ini link invite WhatsApp
+        if (text.includes("chat.whatsapp.com/")) {
+          await safeSendMessage(
+            chatId,
+            "⏳ *Memproses link invite...*\n\nMencoba join grup..."
+          );
+
+          const joinResult = await wa.joinGroupByInviteLink(text);
+
+          if (joinResult.success) {
+            const config1 = await loadConfig();
+            config1.renunganGroupId = joinResult.groupId;
+            await saveConfig(config1);
+            process.env.RENUNGAN_GROUP_ID = joinResult.groupId;
+
+            userStates.delete(userId);
+            await safeSendMessage(
+              chatId,
+              `✅ *Berhasil Join Grup!*\n\nGroup ID: ${joinResult.groupId}\n\n📖 Renungan akan dikirim ke grup ini.`
+            );
+            await showSettingsMenu(chatId, null);
+          } else {
+            await safeSendMessage(
+              chatId,
+              `❌ *Gagal Join Grup*\n\n${joinResult.error}\n\nSilakan coba lagi atau masukkan Group ID manual.`
+            );
+          }
+          return;
+        }
+
+        // Handle Group ID manual
+        const config1 = await loadConfig();
+        config1.renunganGroupId = groupId;
+        await saveConfig(config1);
+        process.env.RENUNGAN_GROUP_ID = groupId;
+
+        userStates.delete(userId);
+        await safeSendMessage(
+          chatId,
+          `✅ *Group ID Renungan Diatur*\n\n${groupId.substring(0, 40)}...`
+        );
+        await showSettingsMenu(chatId, null);
+        break;
+
+      case "set_birthday_group":
+        // Handle "personal"
+        if (text.toLowerCase() === "personal") {
+          const config2 = await loadConfig();
+          config2.birthdayGroupId = "";
+          await saveConfig(config2);
+          process.env.BIRTHDAY_GROUP_ID = "";
+
+          userStates.delete(userId);
+          await safeSendMessage(
+            chatId,
+            "✅ Ucapan ulang tahun akan dikirim ke masing-masing."
+          );
+          await showSettingsMenu(chatId, null);
+          return;
+        }
+
+        // Handle link invite
+        if (text.includes("chat.whatsapp.com/")) {
+          await safeSendMessage(
+            chatId,
+            "⏳ *Memproses link invite...*\n\nMencoba join grup..."
+          );
+
+          const joinResult = await wa.joinGroupByInviteLink(text);
+
+          if (joinResult.success) {
+            const config2 = await loadConfig();
+            config2.birthdayGroupId = joinResult.groupId;
+            await saveConfig(config2);
+            process.env.BIRTHDAY_GROUP_ID = joinResult.groupId;
+
+            userStates.delete(userId);
+            await safeSendMessage(
+              chatId,
+              `✅ *Berhasil Join Grup!*\n\nGroup ID: ${joinResult.groupId}\n\n🎂 Ucapan ulang tahun akan dikirim ke grup ini.`
+            );
+            await showSettingsMenu(chatId, null);
+          } else {
+            await safeSendMessage(
+              chatId,
+              `❌ *Gagal Join Grup*\n\n${joinResult.error}\n\nSilakan coba lagi atau masukkan Group ID manual.`
+            );
+          }
+          return;
+        }
+
+        // Handle Group ID manual
+        const config2 = await loadConfig();
+        config2.birthdayGroupId = text;
+        await saveConfig(config2);
+        process.env.BIRTHDAY_GROUP_ID = text;
+
+        userStates.delete(userId);
+        await safeSendMessage(
+          chatId,
+          `✅ *Group ID Birthday Diatur*\n\n${text.substring(0, 40)}...`
+        );
+        await showSettingsMenu(chatId, null);
+        break;
+    }
+  } catch (error) {
+    console.error("❌ Message handler error:", error.message);
+    await safeSendMessage(chatId, `❌ Error: ${error.message}`);
+    userStates.delete(userId);
+  }
+});
+
+async function handleAddVerseInput(userId, chatId, text, state) {
+  switch (state.step) {
+    case "verse":
+      state.data.verse = text;
+      state.step = "category";
+      userStates.set(userId, state);
+
+      await safeSendMessage(chatId, `📖 Ayat: ${text}\n\nPilih kategori:`, {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "❤️ Kasih", callback_data: "cat_kasih" },
+              { text: "✝️ Iman", callback_data: "cat_iman" },
+            ],
+            [
+              { text: "🌟 Harapan", callback_data: "cat_harapan" },
+              { text: "💪 Kekuatan", callback_data: "cat_kekuatan" },
+            ],
+            [
+              { text: "🤗 Penghiburan", callback_data: "cat_penghiburan" },
+              { text: "📖 Umum", callback_data: "cat_umum" },
+            ],
+          ],
+        },
+      });
+      break;
+  }
+}
+
+// ============================================
+// START FUNCTION
+// ============================================
+
+/**
+ * Restart Telegram polling dengan backoff
+ */
+async function restartTelegramPolling() {
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+  }
+
+  const delay = Math.min(
+    POLLING_RETRY_DELAY * Math.pow(2, pollingRetries),
+    60000
+  );
+
+  console.log(`⏳ Mencoba reconnect Telegram dalam ${delay / 1000}s...`);
+
+  reconnectTimeout = setTimeout(async () => {
+    try {
+      await bot.stopPolling();
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await bot.startPolling();
+
+      pollingRetries = 0;
+      isOnline = true;
+      console.log("✅ Telegram polling berhasil direstart");
+    } catch (error) {
+      pollingRetries++;
+      if (pollingRetries < MAX_POLLING_RETRIES) {
+        console.log(`🔄 Retry ${pollingRetries}/${MAX_POLLING_RETRIES}...`);
+        restartTelegramPolling();
+      } else {
+        console.error(
+          "❌ Max retries tercapai. Bot akan menunggu koneksi kembali."
+        );
+        isOnline = false;
+      }
+    }
+  }, delay);
+}
+
+function startTelegramBot() {
+  console.log("🤖 Telegram Bot aktif!");
+  console.log(
+    `👮 Admin IDs: ${
+      ADMIN_IDS.length > 0 ? ADMIN_IDS.join(", ") : "Belum diatur!"
+    }`
+  );
+
+  // Ensure config file exists
+  fs.ensureFile(CONFIG_FILE).catch(() => {});
+
+  // Handle polling errors dengan retry
+  bot.on("polling_error", (error) => {
+    const errorCode = error.code || "UNKNOWN";
+    const errorMsg = error.message || "";
+
+    // Ignore error duplikat polling (409)
+    if (errorCode === "ETELEGRAM" && errorMsg.includes("409")) {
+      return;
+    }
+
+    // Handle EFATAL (koneksi terputus)
+    if (errorCode === "EFATAL" || errorMsg.includes("EFATAL")) {
+      console.log("⚠️ Koneksi internet terputus. Menunggu reconnect...");
+      isOnline = false;
+
+      // Auto-restart polling
+      if (pollingRetries < MAX_POLLING_RETRIES) {
+        restartTelegramPolling();
+      }
+      return;
+    }
+
+    // Handle error lainnya
+    if (
+      errorCode === "ECONNRESET" ||
+      errorCode === "ETIMEDOUT" ||
+      errorCode === "ENOTFOUND"
+    ) {
+      console.log(`⚠️ Network error (${errorCode}). Retry otomatis...`);
+      if (pollingRetries < MAX_POLLING_RETRIES) {
+        restartTelegramPolling();
+      }
+      return;
+    }
+
+    // Log error lainnya
+    console.error(
+      `❌ Telegram error [${errorCode}]:`,
+      errorMsg.substring(0, 100)
+    );
   });
+
+  // Monitor koneksi kembali
+  setInterval(() => {
+    if (!isOnline && pollingRetries >= MAX_POLLING_RETRIES) {
+      console.log("🔄 Mencoba reconnect Telegram...");
+      pollingRetries = 0;
+      restartTelegramPolling();
+    }
+  }, 30000); // Cek setiap 30 detik
 }
 
 module.exports = { startTelegramBot, bot };

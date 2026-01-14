@@ -1,0 +1,2197 @@
+{
+  "verses": [
+    {
+      "id": 1,
+      "verse": "1 Yohanes 4:7-8",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 2,
+      "verse": "Yohanes 13:34-35",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 3,
+      "verse": "Kolose 3:14",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 4,
+      "verse": "Titus 2:11-12",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 5,
+      "verse": "1 Yohanes 4:18-19",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 6,
+      "verse": "Lukas 6:27-28",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 7,
+      "verse": "Mazmur 103:8-12",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 8,
+      "verse": "Kolose 3:12-13",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 9,
+      "verse": "1 Petrus 4:8",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 10,
+      "verse": "Hosea 11:4",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 11,
+      "verse": "Roma 13:8-10",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 12,
+      "verse": "Roma 5:8",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 13,
+      "verse": "Yohanes 17:26",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 14,
+      "verse": "Yohanes 15:9",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 15,
+      "verse": "Roma 12:9-10",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 16,
+      "verse": "Roma 8:38-39",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 17,
+      "verse": "1 Korintus 13:13",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 18,
+      "verse": "Yeremia 31:3",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 19,
+      "verse": "Mazmur 23:1-6",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 20,
+      "verse": "Efesus 3:17-19",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 21,
+      "verse": "1 Yohanes 2:5",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 22,
+      "verse": "Efesus 4:32",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 23,
+      "verse": "1 Korintus 13:4-7",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 24,
+      "verse": "1 Yohanes 3:16-18",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 25,
+      "verse": "Zefanya 3:17",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 26,
+      "verse": "Yohanes 3:16",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 27,
+      "verse": "Galatia 5:13-14",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 28,
+      "verse": "1 Yohanes 3:1",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 29,
+      "verse": "1 Yohanes 4:8",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 30,
+      "verse": "Mazmur 139:13-14",
+      "category": "kasih",
+      "used": false
+    },
+    {
+      "id": 31,
+      "verse": "2 Korintus 5:7",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 32,
+      "verse": "1 Yohanes 5:4",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 33,
+      "verse": "Amsal 3:5-6",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 34,
+      "verse": "Habakuk 2:4",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 35,
+      "verse": "Matius 21:21-22",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 36,
+      "verse": "2 Timotius 1:12",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 37,
+      "verse": "Yohanes 3:36",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 38,
+      "verse": "Roma 10:17",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 39,
+      "verse": "Markus 11:22-24",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 40,
+      "verse": "Yohanes 14:6",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 41,
+      "verse": "Galatia 2:20",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 42,
+      "verse": "Matius 17:20",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 43,
+      "verse": "Yakobus 2:17",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 44,
+      "verse": "Ibrani 11:6",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 45,
+      "verse": "Mazmur 34:8",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 46,
+      "verse": "Ibrani 11:1",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 47,
+      "verse": "Roma 14:23",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 48,
+      "verse": "Efesus 2:8-9",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 49,
+      "verse": "Roma 4:20-21",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 50,
+      "verse": "Yakobus 1:6-8",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 51,
+      "verse": "Ibrani 13:5",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 52,
+      "verse": "Ibrani 12:2",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 53,
+      "verse": "2 Korintus 4:18",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 54,
+      "verse": "Kolose 2:6-7",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 55,
+      "verse": "1 Petrus 1:8-9",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 56,
+      "verse": "Ibrani 10:38",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 57,
+      "verse": "1 Korintus 16:13",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 58,
+      "verse": "Roma 1:17",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 59,
+      "verse": "Yohanes 20:29",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 60,
+      "verse": "1 Petrus 1:21",
+      "category": "iman",
+      "used": false
+    },
+    {
+      "id": 61,
+      "verse": "Yeremia 17:7",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 62,
+      "verse": "Mazmur 42:5",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 63,
+      "verse": "1 Korintus 15:19",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 64,
+      "verse": "Yesaya 40:31",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 65,
+      "verse": "Ibrani 6:19",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 66,
+      "verse": "Roma 5:5",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 67,
+      "verse": "Yohanes 10:10",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 68,
+      "verse": "Mazmur 33:18",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 69,
+      "verse": "Ratapan 3:22-23",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 70,
+      "verse": "Mazmur 39:7",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 71,
+      "verse": "1 Petrus 3:15",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 72,
+      "verse": "Mazmur 71:5",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 73,
+      "verse": "Ibrani 10:23",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 74,
+      "verse": "1 Yohanes 3:2-3",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 75,
+      "verse": "Efesus 3:20-21",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 76,
+      "verse": "1 Petrus 1:3",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 77,
+      "verse": "Mazmur 130:5",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 78,
+      "verse": "Roma 12:12",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 79,
+      "verse": "Kolose 1:27",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 80,
+      "verse": "Roma 15:13",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 81,
+      "verse": "Ayub 11:18",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 82,
+      "verse": "Roma 8:24-25",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 83,
+      "verse": "Yesaya 43:18-19",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 84,
+      "verse": "Titus 2:13",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 85,
+      "verse": "Mazmur 62:5",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 86,
+      "verse": "Roma 8:28",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 87,
+      "verse": "Mazmur 147:11",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 88,
+      "verse": "1 Tesalonika 5:8",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 89,
+      "verse": "Zakharia 9:12",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 90,
+      "verse": "Yeremia 29:11",
+      "category": "harapan",
+      "used": false
+    },
+    {
+      "id": 91,
+      "verse": "Efesus 3:16",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 92,
+      "verse": "Filipi 4:19",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 93,
+      "verse": "1 Korintus 15:58",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 94,
+      "verse": "Yesaya 26:4",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 95,
+      "verse": "Kolose 1:29",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 96,
+      "verse": "Mazmur 46:1",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 97,
+      "verse": "2 Samuel 22:33",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 98,
+      "verse": "Filipi 4:13",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 99,
+      "verse": "Habakuk 3:19",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 100,
+      "verse": "Mazmur 28:7",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 101,
+      "verse": "Yesaya 41:10",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 102,
+      "verse": "Mazmur 18:32",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 103,
+      "verse": "Mazmur 118:14",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 104,
+      "verse": "Kolose 1:11",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 105,
+      "verse": "Zakharia 4:6",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 106,
+      "verse": "2 Korintus 12:9",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 107,
+      "verse": "1 Petrus 5:10",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 108,
+      "verse": "2 Korintus 12:10",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 109,
+      "verse": "Ibrani 12:1-2",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 110,
+      "verse": "Mazmur 73:26",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 111,
+      "verse": "Galatia 6:9",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 112,
+      "verse": "2 Timotius 1:7",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 113,
+      "verse": "Yesaya 12:2",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 114,
+      "verse": "Yoel 3:10",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 115,
+      "verse": "1 Korintus 16:13-14",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 116,
+      "verse": "Yosua 1:9",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 117,
+      "verse": "Yesaya 40:31",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 118,
+      "verse": "Nehemia 8:10",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 119,
+      "verse": "Mazmur 27:1",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 120,
+      "verse": "Efesus 6:10-11",
+      "category": "kekuatan",
+      "used": false
+    },
+    {
+      "id": 121,
+      "verse": "2 Korintus 7:6",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 122,
+      "verse": "Mazmur 94:19",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 123,
+      "verse": "Mazmur 119:76",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 124,
+      "verse": "Mazmur 86:17",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 125,
+      "verse": "Matius 5:4",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 126,
+      "verse": "Yesaya 57:18",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 127,
+      "verse": "Yohanes 14:1",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 128,
+      "verse": "Yesaya 66:13",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 129,
+      "verse": "2 Tesalonika 2:16-17",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 130,
+      "verse": "2 Korintus 1:3-4",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 131,
+      "verse": "Yesaya 51:12",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 132,
+      "verse": "Mazmur 55:22",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 133,
+      "verse": "Kolose 4:11",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 134,
+      "verse": "Filipi 2:1",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 135,
+      "verse": "Yohanes 16:33",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 136,
+      "verse": "Amsal 18:10",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 137,
+      "verse": "Yeremia 31:13",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 138,
+      "verse": "Roma 15:4",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 139,
+      "verse": "Mazmur 91:1-2",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 140,
+      "verse": "Yesaya 40:1",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 141,
+      "verse": "Wahyu 21:4",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 142,
+      "verse": "Mazmur 23:4",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 143,
+      "verse": "Yohanes 14:18",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 144,
+      "verse": "Ayub 16:5",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 145,
+      "verse": "1 Petrus 5:7",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 146,
+      "verse": "Matius 11:28-30",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 147,
+      "verse": "Mazmur 147:3",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 148,
+      "verse": "Roma 8:26",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 149,
+      "verse": "Mazmur 34:18",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 150,
+      "verse": "Yesaya 49:13",
+      "category": "penghiburan",
+      "used": false
+    },
+    {
+      "id": 151,
+      "verse": "Roma 8:26-27",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 152,
+      "verse": "Matius 6:9-13",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 153,
+      "verse": "Matius 7:7-8",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 154,
+      "verse": "1 Tesalonika 5:16-18",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 155,
+      "verse": "Mazmur 145:18",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 156,
+      "verse": "Lukas 18:1",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 157,
+      "verse": "Markus 11:24",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 158,
+      "verse": "Filipi 4:6-7",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 159,
+      "verse": "1 Yohanes 5:14-15",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 160,
+      "verse": "Mazmur 118:24",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 161,
+      "verse": "Efesus 1:16-17",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 162,
+      "verse": "Matius 21:22",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 163,
+      "verse": "Lukas 11:1",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 164,
+      "verse": "1 Tesalonika 5:17",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 165,
+      "verse": "Daniel 9:19",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 166,
+      "verse": "Yakobus 5:16",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 167,
+      "verse": "Mazmur 103:2-5",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 168,
+      "verse": "Yohanes 16:24",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 169,
+      "verse": "Mazmur 66:19",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 170,
+      "verse": "Yakobus 1:5",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 171,
+      "verse": "Lukas 18:13",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 172,
+      "verse": "Lukas 11:9-10",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 173,
+      "verse": "Kolose 4:2",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 174,
+      "verse": "1 Timotius 2:1",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 175,
+      "verse": "Ibrani 4:16",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 176,
+      "verse": "Mazmur 17:6",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 177,
+      "verse": "Yohanes 14:13-14",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 178,
+      "verse": "Mazmur 141:2",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 179,
+      "verse": "Yeremia 33:3",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 180,
+      "verse": "Efesus 6:18",
+      "category": "doa",
+      "used": false
+    },
+    {
+      "id": 181,
+      "verse": "Amsal 2:6",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 182,
+      "verse": "1 Korintus 1:30",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 183,
+      "verse": "Amsal 22:6",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 184,
+      "verse": "Amsal 8:11",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 185,
+      "verse": "Kolose 4:5",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 186,
+      "verse": "1 Raja-raja 3:9",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 187,
+      "verse": "Amsal 14:8",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 188,
+      "verse": "Yakobus 1:5",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 189,
+      "verse": "Pengkhotbah 7:12",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 190,
+      "verse": "Amsal 16:3",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 191,
+      "verse": "Pengkhotbah 12:13",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 192,
+      "verse": "Amsal 19:20",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 193,
+      "verse": "Amsal 1:7",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 194,
+      "verse": "Daniel 2:20-21",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 195,
+      "verse": "Efesus 1:17",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 196,
+      "verse": "Mazmur 111:10",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 197,
+      "verse": "Matius 6:33",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 198,
+      "verse": "Yakobus 3:13",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 199,
+      "verse": "Amsal 24:3-4",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 200,
+      "verse": "Amsal 17:27-28",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 201,
+      "verse": "Amsal 11:2",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 202,
+      "verse": "Mikha 6:8",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 203,
+      "verse": "Efesus 1:8-9",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 204,
+      "verse": "Amsal 15:33",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 205,
+      "verse": "Amsal 3:5-6",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 206,
+      "verse": "Kolose 3:16",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 207,
+      "verse": "Amsal 13:10",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 208,
+      "verse": "Yakobus 3:17",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 209,
+      "verse": "Amsal 9:10",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 210,
+      "verse": "Amsal 4:7",
+      "category": "hikmat",
+      "used": false
+    },
+    {
+      "id": 211,
+      "verse": "Matius 5:9",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 212,
+      "verse": "Ibrani 12:14",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 213,
+      "verse": "Roma 14:19",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 214,
+      "verse": "Kolose 3:15",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 215,
+      "verse": "1 Korintus 14:33",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 216,
+      "verse": "Mazmur 119:165",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 217,
+      "verse": "Yesaya 32:17",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 218,
+      "verse": "Yohanes 20:19",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 219,
+      "verse": "1 Petrus 3:11",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 220,
+      "verse": "Yohanes 16:33",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 221,
+      "verse": "Hakim-hakim 6:24",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 222,
+      "verse": "Roma 5:1",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 223,
+      "verse": "Yesaya 9:6",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 224,
+      "verse": "Roma 15:13",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 225,
+      "verse": "2 Tesalonika 3:16",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 226,
+      "verse": "Mazmur 29:11",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 227,
+      "verse": "Roma 8:6",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 228,
+      "verse": "Bilangan 6:24-26",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 229,
+      "verse": "Mazmur 37:11",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 230,
+      "verse": "Kolose 1:20",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 231,
+      "verse": "Yesaya 52:7",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 232,
+      "verse": "Mazmur 4:8",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 233,
+      "verse": "Yakobus 3:18",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 234,
+      "verse": "Galatia 5:22",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 235,
+      "verse": "Yeremia 29:7",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 236,
+      "verse": "Yesaya 26:3",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 237,
+      "verse": "Efesus 2:14",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 238,
+      "verse": "Filipi 4:7",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 239,
+      "verse": "Yesaya 54:10",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 240,
+      "verse": "Yohanes 14:27",
+      "category": "damai",
+      "used": false
+    },
+    {
+      "id": 241,
+      "verse": "Daniel 9:3",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 242,
+      "verse": "Yeremia 31:19",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 243,
+      "verse": "Lukas 24:47",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 244,
+      "verse": "Yehezkiel 18:30",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 245,
+      "verse": "Lukas 15:7",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 246,
+      "verse": "Lukas 13:3",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 247,
+      "verse": "Mazmur 32:5",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 248,
+      "verse": "Mazmur 51:10",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 249,
+      "verse": "Amos 5:14-15",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 250,
+      "verse": "Hosea 6:1",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 251,
+      "verse": "Kisah Para Rasul 3:19",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 252,
+      "verse": "2 Petrus 3:9",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 253,
+      "verse": "Markus 1:15",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 254,
+      "verse": "1 Yohanes 1:9",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 255,
+      "verse": "Mazmur 51:1-2",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 256,
+      "verse": "Kisah Para Rasul 2:38",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 257,
+      "verse": "Wahyu 2:5",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 258,
+      "verse": "Yoel 2:12-13",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 259,
+      "verse": "Kisah Para Rasul 17:30",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 260,
+      "verse": "2 Tawarikh 7:14",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 261,
+      "verse": "Ezra 10:11",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 262,
+      "verse": "Yeremia 3:12",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 263,
+      "verse": "Yesaya 55:7",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 264,
+      "verse": "Matius 3:2",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 265,
+      "verse": "2 Korintus 7:10",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 266,
+      "verse": "Yakobus 4:8",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 267,
+      "verse": "Kisah Para Rasul 26:20",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 268,
+      "verse": "Roma 2:4",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 269,
+      "verse": "Yehezkiel 18:21-22",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 270,
+      "verse": "Hosea 14:1",
+      "category": "pertobatan",
+      "used": false
+    },
+    {
+      "id": 271,
+      "verse": "Kolose 3:10",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 272,
+      "verse": "1 Korintus 3:6-7",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 273,
+      "verse": "Filipi 2:3-4",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 274,
+      "verse": "2 Petrus 3:18",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 275,
+      "verse": "1 Timotius 4:15",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 276,
+      "verse": "Efesus 4:24",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 277,
+      "verse": "Galatia 5:22-23",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 278,
+      "verse": "Filipi 1:6",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 279,
+      "verse": "Filipi 3:14",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 280,
+      "verse": "Lukas 2:52",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 281,
+      "verse": "2 Petrus 1:5-8",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 282,
+      "verse": "Kolose 1:10",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 283,
+      "verse": "Ibrani 6:1",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 284,
+      "verse": "Efesus 4:15",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 285,
+      "verse": "1 Korintus 13:11",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 286,
+      "verse": "Hosea 14:5",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 287,
+      "verse": "Efesus 4:11-13",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 288,
+      "verse": "Kolose 2:6-7",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 289,
+      "verse": "Yohanes 15:5",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 290,
+      "verse": "Markus 4:20",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 291,
+      "verse": "Yohanes 15:2",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 292,
+      "verse": "Ibrani 5:12-14",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 293,
+      "verse": "1 Tesalonika 3:12",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 294,
+      "verse": "2 Tesalonika 1:3",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 295,
+      "verse": "Matius 13:23",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 296,
+      "verse": "Efesus 2:21-22",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 297,
+      "verse": "2 Korintus 3:18",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 298,
+      "verse": "1 Petrus 2:2",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 299,
+      "verse": "1 Korintus 3:1-2",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 300,
+      "verse": "Roma 12:2",
+      "category": "pertumbuhan_rohani",
+      "used": false
+    },
+    {
+      "id": 301,
+      "verse": "1 Tesalonika 5:18",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 302,
+      "verse": "Matius 6:25-34",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 303,
+      "verse": "Keluaran 20:1-17",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 304,
+      "verse": "Mazmur 100:1-5",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 305,
+      "verse": "Wahyu 1:8",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 306,
+      "verse": "Amsal 16:9",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 307,
+      "verse": "Yesaya 6:8",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 308,
+      "verse": "Matius 7:12",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 309,
+      "verse": "Mazmur 139:1-3",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 310,
+      "verse": "Roma 3:23",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 311,
+      "verse": "Mikah 7:18",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 312,
+      "verse": "Kolose 3:23",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 313,
+      "verse": "Kolose 4:6",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 314,
+      "verse": "Mazmur 150:6",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 315,
+      "verse": "Yosua 1:8",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 316,
+      "verse": "Lukas 6:38",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 317,
+      "verse": "Yakobus 1:22",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 318,
+      "verse": "2 Timotius 2:15",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 319,
+      "verse": "Efesus 1:3-6",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 320,
+      "verse": "Matius 22:37-40",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 321,
+      "verse": "Yeremia 1:5",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 322,
+      "verse": "Yohanes 15:13",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 323,
+      "verse": "Filipi 2:5-8",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 324,
+      "verse": "Galatia 2:20",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 325,
+      "verse": "Mazmur 1:1-3",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 326,
+      "verse": "Amsal 27:17",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 327,
+      "verse": "Matius 16:24",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 328,
+      "verse": "Markus 16:15",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 329,
+      "verse": "Pengkhotbah 4:9-10",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 330,
+      "verse": "Yohanes 1:12",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 331,
+      "verse": "Matius 11:29",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 332,
+      "verse": "Kisah Para Rasul 1:8",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 333,
+      "verse": "Yohanes 11:25",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 334,
+      "verse": "Yohanes 3:3",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 335,
+      "verse": "Mazmur 46:10",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 336,
+      "verse": "Yohanes 1:1",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 337,
+      "verse": "1 Petrus 1:15-16",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 338,
+      "verse": "Yesaya 53:5",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 339,
+      "verse": "Kejadian 12:1-3",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 340,
+      "verse": "Matius 1:1",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 341,
+      "verse": "Matius 5:16",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 342,
+      "verse": "Keluaran 14:14",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 343,
+      "verse": "Roma 12:1",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 344,
+      "verse": "Yohanes 17:3",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 345,
+      "verse": "Ibrani 11:1-3",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 346,
+      "verse": "Yohanes 4:24",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 347,
+      "verse": "1 Korintus 15:3-4",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 348,
+      "verse": "Lukas 19:10",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 349,
+      "verse": "Matius 28:19-20",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 350,
+      "verse": "Mazmur 119:105",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 351,
+      "verse": "Roma 6:23",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 352,
+      "verse": "2 Timotius 3:16",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 353,
+      "verse": "Roma 10:9",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 354,
+      "verse": "Yohanes 8:12",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 355,
+      "verse": "Yohanes 6:35",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 356,
+      "verse": "Pengkhotbah 3:1",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 357,
+      "verse": "Lukas 1:1-4",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 358,
+      "verse": "Efesus 5:20",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 359,
+      "verse": "1 Korintus 10:31",
+      "category": "umum",
+      "used": false
+    },
+    {
+      "id": 360,
+      "verse": "Kejadian 1:1",
+      "category": "umum",
+      "used": false
+    }
+  ],
+  "specialDayVerses": {
+    "natal": "Lukas 2:10-11",
+    "paskah": "Yohanes 11:25-26",
+    "jumat_agung": "Yesaya 53:5",
+    "pentakosta": "Kisah Para Rasul 2:38",
+    "kenaikan": "Kisah Para Rasul 1:8-9",
+    "minggu_palma": "Yohanes 12:13",
+    "rabu_abu": "Yoel 2:12-13",
+    "tahun_baru": "Yesaya 43:18-19",
+    "epifani": "Matius 2:1-2",
+    "kemerdekaan": "Galatia 5:1",
+    "kasih_sayang": "1 Korintus 13:4-7"
+  },
+  "metadata": {
+    "year": 2027,
+    "totalVerses": 360,
+    "lastUpdated": "2026-01-14T08:13:48.351512",
+    "note": "360 ayat untuk renungan harian tahun 2027. Ayat hari besar ada di specialDayVerses.",
+    "categories": [
+      "kasih - ❤️ Kasih (30 ayat: relasi & hati)",
+      "iman - ✝️ Iman (30 ayat: percaya & keselamatan)",
+      "harapan - ✨ Harapan (30 ayat: masa depan & janji)",
+      "kekuatan - 💪 Kekuatan (30 ayat: bertahan & keberanian)",
+      "penghiburan - 🤗 Penghiburan (30 ayat: pemulihan emosi)",
+      "doa - 🙏 Doa (30 ayat: hubungan dengan Tuhan)",
+      "hikmat - ⚖️ Hikmat (30 ayat: cara hidup benar)",
+      "damai - 🕊️ Damai Sejahtera (30 ayat: ketenangan batin)",
+      "pertobatan - 🔥 Pertobatan (30 ayat: perubahan hidup)",
+      "pertumbuhan_rohani - 🌱 Pertumbuhan Rohani (30 ayat: kedewasaan iman)",
+      "umum - 📖 Umum (60 ayat: narasi & pengajaran umum)"
+    ],
+    "distribution": "Merata 30 ayat per kategori (kecuali Umum: 60 ayat)"
+  }
+}

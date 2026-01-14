@@ -1,63 +1,61 @@
-# 🤖 WhatsApp-Telegram Bot v2.0.0
+# 🤖 WhatsApp Bot Renungan Harian v3.0
 
-Bot terintegrasi antara WhatsApp dan Telegram dengan fitur lengkap:
+Bot WhatsApp dengan sistem renungan harian menggunakan AI dan manajemen ayat per tahun.
 
-- 🕒 Kirim pesan berjadwal (teks/foto/file)
-- 📖 Renungan harian otomatis (Gemini AI)
-- 🎂 Pengingat ulang tahun (Google Sheets)
-- 🔐 Verifikasi admin (hanya admin yang bisa pakai)
-- 🔄 Auto-reconnect (bot tetap jalan meski jaringan mati)
-- 🛡️ Error handling lengkap (tidak crash)
+## ✨ Fitur Utama
 
-**Status: Production Ready ✅ | RAM: ~300MB | 24/7 Uptime**
+- 📖 **Renungan Harian dengan AI** - Generate renungan lengkap dari referensi ayat menggunakan Gemini/OpenRouter AI
+- 📅 **Sistem Verse Tahunan** - 365 ayat unik per tahun, tidak ada pengulangan dalam setahun
+- 🎂 **Pengingat Ulang Tahun** - Integrasi Google Sheets untuk ulang tahun otomatis
+- 🕒 **Scheduler Otomatis** - Kirim renungan & ucapan ulang tahun sesuai jadwal
+- 🎯 **Kategori Ayat** - 11 kategori (Kasih ❤️, Iman ✝️, Harapan ✨, dll)
+- 🎉 **Ayat Hari Besar** - Ayat khusus untuk Natal, Paskah, Pentakosta, dll
+- 🎛️ **Telegram Control Panel** - Kontrol bot via Telegram (preview, kirim manual, statistik)
+- 🔄 **Auto-Reconnect** - Reconnect otomatis jika WhatsApp terputus
 
----
+## 📊 Sistem Verse Tahunan
 
-## 🆕 What's New in v2.0.0
+Bot menggunakan sistem file verse per tahun (`verses_YYYY.json`) yang berisi 365 ayat unik:
 
-### 🔐 Security Features
+```
+src/data/
+  ├── verses_2026.json  (365 ayat untuk 2026)
+  ├── verses_2027.json  (365 ayat untuk 2027)
+  ├── verses_2028.json  (365 ayat untuk 2028)
+  └── ...
+```
 
-- ✅ **Admin Verification** - Hanya admin yang bisa menggunakan bot
-- ✅ **Access Control** - Proteksi semua command & button
-- ✅ **Security Logging** - Log aktivitas akses ditolak
+**Keuntungan:**
+- ✅ Setiap hari dalam satu tahun mendapat ayat yang berbeda
+- ✅ Tidak ada ayat yang berulang sepanjang tahun
+- ✅ Setiap tahun memiliki urutan ayat yang berbeda (seeded random)
+- ✅ Total 400+ ayat dalam database, dipilih 365 per tahun
 
-### 🔄 Reliability Features
+### Generate Verses Untuk Tahun Baru
 
-- ✅ **Auto-Reconnect** - WhatsApp reconnect otomatis saat terputus
-- ✅ **Connection Check** - Scheduler tunggu sampai online
-- ✅ **Error Handling** - Bot tidak crash untuk error apapun
-- ✅ **Graceful Shutdown** - Stop dengan aman (Ctrl+C)
+```bash
+# Generate untuk satu tahun
+node tools/generateYearlyVerses.js 2026
 
-### 📖 Documentation
-
-- ✅ 6 dokumentasi lengkap (Quick Start, Admin, Testing, Deploy, dll)
-- ✅ Tool `getUserId.js` untuk setup admin
-- ✅ Troubleshooting guide
-
----
-
-## 📚 Dokumentasi Lengkap
-
-- **[QUICKSTART.md](QUICKSTART.md)** - Setup cepat 5 menit ⚡
-- **[SETUP_ADMIN.md](SETUP_ADMIN.md)** - Cara setup admin & User ID 🔐
-- **[TESTING.md](TESTING.md)** - Testing guide lengkap 🧪
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Deploy ke VPS production 🌐
-- **[CHANGELOG.md](CHANGELOG.md)** - Update history v2.0.0 📝
-- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Overview lengkap proyek 📦
-
----
+# Generate untuk beberapa tahun sekaligus
+node tools/generateYearlyVerses.js 2026 2027 2028 2029 2030
+```
 
 ## 📋 Prasyarat
 
 - Node.js v16 atau lebih baru
 - Akun Telegram Bot (dari @BotFather)
-- Google API Service Account
-- Gemini API Key
-- Telegram User ID untuk admin (lihat `SETUP_ADMIN.md`)
+- Google API Service Account (untuk ulang tahun)
+- Gemini/OpenRouter API Key (untuk AI renungan)
 
-## 🚀 Instalasi
+## 🚀 Quick Start
 
-1. **Clone atau download project ini**
+1. **Clone repository:**
+
+```bash
+git clone https://github.com/jhopan/JhopanWaBotRenungan.git
+cd JhopanWaBotRenungan
+```
 
 2. **Install dependencies:**
 
@@ -65,110 +63,134 @@ Bot terintegrasi antara WhatsApp dan Telegram dengan fitur lengkap:
 npm install
 ```
 
-3. **Konfigurasi `.env`:**
+3. **Setup environment (`.env`):**
 
 ```env
+# Telegram Bot Token (dari @BotFather)
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+
+# AI Configuration (pilih salah satu)
+AI_PROVIDER=gemini
 GEMINI_API_KEY=your_gemini_api_key
+# atau
+AI_PROVIDER=openrouter  
+OPENROUTER_API_KEY=your_openrouter_key
+
+# Google Sheets (untuk ulang tahun)
 GOOGLE_SERVICE_ACCOUNT=./credentials.json
 SPREADSHEET_ID=your_google_sheet_id
+
+# Timezone & Jadwal
 TIMEZONE=Asia/Makassar
 RENUNGAN_GROUP_ID=628123456789@c.us
 RENUNGAN_TIME=08:00
-
-# Admin Telegram User IDs (PENTING!)
-ADMIN_TELEGRAM_IDS=123456789,987654321
+BIRTHDAY_TIME=07:00
 ```
 
-**📖 Cara mendapatkan User ID:** Lihat file `SETUP_ADMIN.md`
+4. **Generate verses untuk tahun ini:**
 
-4. **Siapkan Google Service Account:**
+```bash
+node tools/generateYearlyVerses.js 2026
+```
 
-   - Buat service account di Google Cloud Console
-   - Download file JSON credentials
-   - Simpan sebagai `credentials.json` di root folder
-
-5. **Format Google Sheets untuk ulang tahun:**
-   | Nama | Tanggal (DD-MM) | Chat ID |
-   |------|----------------|---------|
-   | John | 15-03 | 6281234567890@c.us |
-   | Mary | 20-06 | 6289876543210@c.us |
-
-## 🎯 Cara Menjalankan
+5. **Jalankan bot:**
 
 ```bash
 npm start
 ```
 
-**Langkah pertama kali:**
+6. **Scan QR Code WhatsApp** yang muncul di terminal
 
-1. Scan QR Code WhatsApp yang muncul di terminal
-2. Buka Telegram, chat dengan bot Anda
-3. Ketik `/start` untuk melihat menu utama
+## 🎯 Penggunaan via Telegram
 
-## 📱 Fitur Telegram Bot
+Bot dikontrol sepenuhnya via Telegram. Kirim `/start` untuk melihat menu:
 
-### Menu Utama (Inline Buttons)
+- 📖 **Renungan** - Preview, kirim manual, lihat statistik
+- 🎂 **Ulang Tahun** - Kirim ucapan, lihat data
+- 📊 **Status** - Cek koneksi WhatsApp & sistem
 
-- 🕒 **Kirim Pesan Berjadwal**
-  - Tambah jadwal baru
-  - Lihat jadwal yang tersimpan
-- 📖 **Renungan Harian**
-  - Otomatis jam 08:00 pagi
-  - Menggunakan Gemini AI untuk refleksi
-- 🎂 **Ulang Tahun**
-  - Otomatis jam 07:00 pagi
-  - Data dari Google Sheets
+### Kategori Ayat
 
-### Format Jadwal Pesan
+Bot memiliki 11 kategori ayat untuk variasi renungan:
 
-```
-nomor@c.us|YYYY-MM-DD HH:mm|teks/foto/pdf|isi pesan
-```
+- ❤️ **Kasih** - Ayat tentang kasih Allah dan sesama
+- ✝️ **Iman** - Ayat tentang iman dan percaya
+- ✨ **Harapan** - Ayat tentang pengharapan
+- 💪 **Kekuatan** - Ayat tentang kekuatan dalam Tuhan
+- 🤗 **Penghiburan** - Ayat penghiburan
+- 🙏 **Doa** - Ayat tentang doa
+- ⚖️ **Hikmat** - Ayat tentang kebijaksanaan
+- 🕊️ **Damai** - Ayat tentang damai sejahtera
+- 🔥 **Pertobatan** - Ayat tentang pertobatan
+- 🌱 **Pertumbuhan Rohani** - Ayat tentang kedewasaan iman
+- 📖 **Umum** - Ayat-ayat umum
 
-**Contoh:**
-
-```
-6281234567890@c.us|2025-11-15 10:30|teks|Selamat pagi! Jangan lupa meeting hari ini.
-```
-
-## 📂 Struktur Folder
+## 📂 Struktur Project
 
 ```
 whatsapp-telegram-bot/
 ├── src/
-│   ├── index.js              # Entry point
-│   ├── botTelegram.js        # Telegram bot handler
+│   ├── index.js              # Entry point utama
+│   ├── botTelegram.js        # Telegram control panel
 │   ├── botWhatsApp.js        # WhatsApp client
-│   ├── scheduler.js          # Scheduler pesan
-│   ├── renunganHandler.js    # Renungan harian
-│   ├── birthdayReminder.js   # Pengingat ulang tahun
-│   ├── googleSheetService.js # Google Sheets API
+│   ├── renunganHandler.js    # Handler renungan harian
+│   ├── birthdayReminder.js   # Handler ulang tahun
+│   ├── googleSheetService.js # Google Sheets integration
+│   ├── services/
+│   │   └── aiService.js      # AI provider (Gemini/OpenRouter)
 │   ├── utils/
-│   │   ├── logger.js
-│   │   ├── dateHelper.js
-│   │   └── fileHelper.js
+│   │   ├── logger.js         # Logging utility
+│   │   └── fileHelper.js     # File operations
 │   ├── data/
-│   │   ├── schedule.json
-│   │   ├── verses.json
-│   │   └── birthdays.json
+│   │   ├── verses_2026.json  # Verses untuk 2026
+│   │   ├── verses_2027.json  # Verses untuk 2027
+│   │   └── birthdays.json    # Cache data ulang tahun
 │   └── templates/
-│       ├── renunganTemplate.txt
-│       └── ulangTahunTemplate.txt
-├── package.json
+│       └── renunganTemplate.txt
+├── tools/
+│   ├── generateYearlyVerses.js  # Generate verses tahunan
+│   └── getUserId.js             # Tool get Telegram user ID
 ├── .env
+├── credentials.json
+├── package.json
 └── README.md
 ```
 
-## ⚙️ Spesifikasi Teknis
+## 🔧 Maintenance
 
-- **RAM Usage:** ~300MB (aktif penuh)
+### Generate Verses untuk Tahun Baru
+
+Setiap awal tahun, generate verses baru:
+
+```bash
+node tools/generateYearlyVerses.js 2027
+```
+
+### Update Database Ayat
+
+Edit file `tools/generateYearlyVerses.js` di bagian `allVerses` object untuk menambah ayat baru ke database.
+
+### Backup Data
+
+File penting untuk di-backup:
+- `.env` - Konfigurasi
+- `credentials.json` - Google credentials
+- `src/data/birthdays.json` - Data ulang tahun
+
+## 🔐 Security
+
+- File `.env` dan `credentials.json` **TIDAK** di-commit ke Git
+- Gunakan `.gitignore` untuk exclude file sensitif
+- WhatsApp session otomatis di-cache di `.wwebjs_auth/`
+
+## 📊 Spesifikasi Teknis
+
+- **RAM Usage:** ~200-300MB
 - **Node Version:** v16+
-- **Architecture:** CommonJS (tanpa transpiler)
+- **Dependencies:** whatsapp-web.js, node-telegram-bot-api, @google-ai/generativelanguage
 - **Cron Jobs:**
-  - Scheduler: setiap menit (`* * * * *`)
-  - Renungan: jam 08:00 (`0 8 * * *`)
-  - Ulang tahun: jam 07:00 (`0 7 * * *`)
+  - Renungan: 08:00 setiap hari
+  - Ulang tahun: 07:00 setiap hari
 
 ## 🔧 Troubleshooting
 
@@ -182,89 +204,61 @@ rm -rf .wwebjs_cache/
 npm start
 ```
 
-### Telegram polling error:
+### File verses tidak ditemukan:
 
-- Pastikan hanya 1 instance bot yang running
-- Check TELEGRAM_BOT_TOKEN di `.env`
+```bash
+# Generate verses untuk tahun ini
+node tools/generateYearlyVerses.js 2026
+```
+
+### AI error / API limit:
+
+- Cek API key di `.env`
+- Ganti provider jika perlu (Gemini ↔ OpenRouter)
+- Periksa quota API
 
 ### Google Sheets error:
 
-- Pastikan service account punya akses ke spreadsheet
 - Share spreadsheet ke email service account
+- Format kolom: Nama | Tanggal (DD-MM) | Chat ID
 
-## � Fitur Keamanan
+## 💡 Tips Production
 
-### ✅ Verifikasi Admin
+**Jalankan 24/7 dengan PM2:**
 
-- **Hanya admin yang bisa menggunakan bot**
-- User lain akan otomatis ditolak
-- Support multiple admin
-- Log aktivitas akses ditolak
+```bash
+npm install -g pm2
+pm2 start src/index.js --name wa-renungan
+pm2 save
+pm2 startup
+```
 
-### 🔄 Auto-Reconnect
+**Monitor logs:**
 
-- **Bot tetap jalan meskipun jaringan mati**
-- Reconnect otomatis dengan exponential backoff
-- Scheduler menunggu sampai koneksi tersedia
-- Tidak ada data yang hilang
+```bash
+pm2 logs wa-renungan
+```
 
-### 🛡️ Error Handling
+**Auto-restart on error:**
 
-- Unhandled rejection handler
-- Uncaught exception handler
-- Graceful shutdown (Ctrl+C)
-
-## �📝 Lisensi
-
-MIT License - Bebas digunakan dan dimodifikasi
-
-## 💡 Tips
-
-- Jalankan di VPS untuk 24/7 uptime
-- Gunakan PM2 untuk auto-restart:
-  ```bash
-  npm install -g pm2
-  pm2 start src/index.js --name whatsapp-bot
-  pm2 save
-  pm2 startup
-  ```
+```bash
+pm2 restart wa-renungan
+```
 
 ## 🤝 Kontribusi
 
-Silakan buka issue atau pull request untuk perbaikan dan fitur baru!
+Kontribusi sangat diterima! Silakan:
+
+1. Fork repository
+2. Buat branch fitur (`git checkout -b fitur-baru`)
+3. Commit changes (`git commit -am 'Tambah fitur baru'`)
+4. Push ke branch (`git push origin fitur-baru`)
+5. Buat Pull Request
+
+## 📝 Lisensi
+
+MIT License - Bebas digunakan dan dimodifikasi untuk keperluan pribadi maupun komersial.
 
 ---
 
-## 📚 Dokumentasi Lengkap
-
-- **[QUICKSTART.md](QUICKSTART.md)** - Setup cepat 5 menit
-- **[SETUP_ADMIN.md](SETUP_ADMIN.md)** - Cara setup admin & User ID
-- **[TESTING.md](TESTING.md)** - Testing guide lengkap
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Deploy ke VPS production
-- **[CHANGELOG.md](CHANGELOG.md)** - Update history v2.0.0
-- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Overview lengkap proyek
-
-## 🆕 What's New in v2.0.0
-
-### 🔐 Security Features
-
-- ✅ **Admin Verification** - Hanya admin yang bisa menggunakan bot
-- ✅ **Access Control** - Proteksi semua command & button
-- ✅ **Security Logging** - Log aktivitas akses ditolak
-
-### 🔄 Reliability Features
-
-- ✅ **Auto-Reconnect** - WhatsApp reconnect otomatis saat terputus
-- ✅ **Connection Check** - Scheduler tunggu sampai online
-- ✅ **Error Handling** - Bot tidak crash untuk error apapun
-- ✅ **Graceful Shutdown** - Stop dengan aman (Ctrl+C)
-
-### 📖 Documentation
-
-- ✅ 6 dokumentasi lengkap (Quick Start, Admin, Testing, Deploy, dll)
-- ✅ Tool `getUserId.js` untuk setup admin
-- ✅ Troubleshooting guide
-
----
-
-**Dibuat dengan ❤️ untuk melayani lebih baik**
+**Dibuat dengan ❤️ untuk pelayanan renungan harian**

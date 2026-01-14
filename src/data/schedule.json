@@ -3,5 +3,14 @@
     "to": "/start",
     "content": "",
     "sent": false
+  },
+  {
+    "to": "6282298657242@c.us",
+    "time": "2025-01-12 11:33",
+    "type": "teks",
+    "content": "Testing ya",
+    "sent": false,
+    "createdBy": 1491946180,
+    "createdAt": "2025-12-01T03:31:14.235Z"
   }
 ]
