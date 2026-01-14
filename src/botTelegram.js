@@ -502,19 +502,35 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
       break;
 
     case "renungan_reset":
-      await renungan.resetVersesStatus();
-      await safeEditMessage(
-        "✅ *Status ayat berhasil direset!*\n\nSemua ayat ditandai belum dipakai.",
-        {
-          chat_id: chatId,
-          message_id: messageId,
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
-            ],
-          },
-        }
-      );
+      const resetResult = await renungan.resetVerses();
+      
+      if (resetResult.success) {
+        await safeEditMessage(
+          `✅ *Status ayat berhasil direset!*\n\n📖 Total ayat: ${resetResult.total}\n📅 Tahun: ${resetResult.year}\n\n✨ Semua ayat ditandai belum dipakai dan siap digunakan kembali dari awal.`,
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
+              ],
+            },
+          }
+        );
+      } else {
+        await safeEditMessage(
+          `❌ *Gagal reset ayat*\n\n${resetResult.error}`,
+          {
+            chat_id: chatId,
+            message_id: messageId,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
+              ],
+            },
+          }
+        );
+      }
       break;
   }
 }
@@ -1534,9 +1550,6 @@ function startTelegramBot() {
     }`
   );
 
-  // Ensure config file exists
-  fs.ensureFile(CONFIG_FILE).catch(() => {});
-
   // Handle polling errors dengan retry
   bot.on("polling_error", (error) => {
     const errorCode = error.code || "UNKNOWN";
@@ -1589,4 +1602,24 @@ function startTelegramBot() {
   }, 30000); // Cek setiap 30 detik
 }
 
-module.exports = { startTelegramBot, bot };
+/**
+ * Kirim notifikasi error ke admin via Telegram
+ */
+async function notifyAdminError(errorMessage) {
+  if (ADMIN_IDS.length === 0) {
+    console.log("⚠️ Tidak ada admin untuk notifikasi error");
+    return;
+  }
+
+  const message = `🚨 *Error Alert*\n\n${errorMessage}\n\n⏰ ${moment().format('DD/MM/YYYY HH:mm:ss')}`;
+
+  for (const adminId of ADMIN_IDS) {
+    try {
+      await bot.sendMessage(adminId, message, { parse_mode: 'Markdown' });
+    } catch (err) {
+      console.error(`❌ Gagal kirim notif ke admin ${adminId}:`, err.message);
+    }
+  }
+}
+
+module.exports = { startTelegramBot, bot, notifyAdminError };
