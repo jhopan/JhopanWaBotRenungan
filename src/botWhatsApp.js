@@ -28,7 +28,7 @@ const waEvents = new EventEmitter();
 async function initWhatsApp(bot) {
   telegramBot = bot;
 
-  // Konfigurasi client yang super ringan
+  // Konfigurasi client yang super ringan untuk GCP Free Tier (256MB RAM)
   waClient = new Client({
     authStrategy: new LocalAuth({
       dataPath: "./.wwebjs_auth",
@@ -43,7 +43,6 @@ async function initWhatsApp(bot) {
         "--no-first-run",
         "--no-zygote",
         "--disable-gpu",
-        "--single-process",
         "--disable-extensions",
         "--disable-background-networking",
         "--disable-sync",
@@ -91,7 +90,7 @@ function setupEventHandlers() {
     await notifyAdmins(
       "✅ *WhatsApp Terhubung!*\n\n" +
         "Bot WhatsApp sudah siap digunakan.\n" +
-        "Ketik /start untuk membuka panel kontrol."
+        "Ketik /start untuk membuka panel kontrol.",
     );
 
     waEvents.emit("ready");
@@ -110,7 +109,7 @@ function setupEventHandlers() {
 
     await notifyAdmins(
       "❌ *Autentikasi WhatsApp Gagal!*\n\n" +
-        "Silakan hapus folder .wwebjs_auth dan scan ulang QR code."
+        "Silakan hapus folder .wwebjs_auth dan scan ulang QR code.",
     );
   });
 
@@ -120,7 +119,7 @@ function setupEventHandlers() {
     connectionState = "DISCONNECTED";
 
     await notifyAdmins(
-      `⚠️ *WhatsApp Terputus!*\n\nAlasan: ${reason}\n\n🔄 Reconnect otomatis...`
+      `⚠️ *WhatsApp Terputus!*\n\nAlasan: ${reason}\n\n🔄 Reconnect otomatis...`,
     );
 
     scheduleReconnect();
@@ -204,7 +203,7 @@ function scheduleReconnect() {
     notifyAdmins(
       "❌ *Gagal Reconnect WhatsApp!*\n\n" +
         `${MAX_RECONNECT_ATTEMPTS}x percobaan gagal.\n` +
-        "Silakan restart bot."
+        "Silakan restart bot.",
     );
     return;
   }
@@ -212,7 +211,7 @@ function scheduleReconnect() {
   reconnectAttempts++;
   const delay = Math.min(
     BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1),
-    60000
+    60000,
   );
 
   console.log(`🔄 Reconnect #${reconnectAttempts} dalam ${delay / 1000}s...`);
@@ -257,14 +256,14 @@ async function sendMessage(to, message) {
   if (!(await isConnected())) {
     throw new Error("WhatsApp tidak terhubung");
   }
-  return waClient.sendMessage(to, message);
+  return waClient.sendMessage(to, message, { sendSeen: false });
 }
 
 async function sendMedia(to, media, options = {}) {
   if (!(await isConnected())) {
     throw new Error("WhatsApp tidak terhubung");
   }
-  return waClient.sendMessage(to, media, options);
+  return waClient.sendMessage(to, media, { ...options, sendSeen: false });
 }
 
 async function getChats() {

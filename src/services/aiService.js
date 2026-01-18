@@ -20,6 +20,25 @@ const API_ENDPOINTS = {
   gemini: "https://generativelanguage.googleapis.com/v1beta/models",
 };
 
+// Multiple API Keys Support dengan auto-rotation
+let currentApiKeyIndex = 0;
+const API_KEYS = {
+  gemini: (process.env.GEMINI_API_KEY || "")
+    .split(",")
+    .map((k) => k.trim())
+    .filter((k) => k),
+  openrouter: (process.env.OPENROUTER_API_KEY || "")
+    .split(",")
+    .map((k) => k.trim())
+    .filter((k) => k),
+};
+
+// Counter untuk setiap API key (untuk track usage)
+const apiKeyUsage = {
+  gemini: {},
+  openrouter: {},
+};
+
 /**
  * Get AI provider dari model name
  */
@@ -50,6 +69,76 @@ function getProvider() {
 }
 
 /**
+ * Get API key dengan rotation (switch otomatis sebelum limit)
+ * @param {string} provider - "gemini" atau "openrouter"
+ * @param {number} maxUsagePerKey - Max request per key sebelum switch (default: limit - 2)
+ */
+function getApiKey(provider, maxUsagePerKey = 13) {
+  const keys = API_KEYS[provider] || [];
+
+  if (keys.length === 0) {
+    throw new Error(`❌ Tidak ada API key untuk provider: ${provider}`);
+  }
+
+  // Single key, return langsung
+  if (keys.length === 1) {
+    return keys[0];
+  }
+
+  // Multiple keys, rotation logic
+  if (!apiKeyUsage[provider]) {
+    apiKeyUsage[provider] = {};
+  }
+
+  // Find key dengan usage paling sedikit
+  let bestKeyIndex = 0;
+  let minUsage = Infinity;
+
+  for (let i = 0; i < keys.length; i++) {
+    const usage = apiKeyUsage[provider][i] || 0;
+    if (usage < minUsage) {
+      minUsage = usage;
+      bestKeyIndex = i;
+    }
+  }
+
+  // Check apakah key ini sudah mendekati limit
+  const currentUsage = apiKeyUsage[provider][bestKeyIndex] || 0;
+
+  if (currentUsage >= maxUsagePerKey) {
+    console.log(
+      `⚠️ API key #${bestKeyIndex + 1} mendekati limit (${currentUsage}/${maxUsagePerKey}), switching...`,
+    );
+
+    // Find next available key dengan usage rendah
+    for (let i = 0; i < keys.length; i++) {
+      const usage = apiKeyUsage[provider][i] || 0;
+      if (usage < maxUsagePerKey) {
+        bestKeyIndex = i;
+        break;
+      }
+    }
+
+    // Reset semua counter jika semua key sudah penuh
+    if ((apiKeyUsage[provider][bestKeyIndex] || 0) >= maxUsagePerKey) {
+      console.log(`🔄 Semua API key mendekati limit, reset counter...`);
+      apiKeyUsage[provider] = {};
+      bestKeyIndex = 0;
+    }
+  }
+
+  // Increment usage
+  apiKeyUsage[provider][bestKeyIndex] =
+    (apiKeyUsage[provider][bestKeyIndex] || 0) + 1;
+
+  console.log(
+    `🔑 Menggunakan ${provider} API key #${bestKeyIndex + 1} (usage: ${apiKeyUsage[provider][bestKeyIndex]}/${maxUsagePerKey})`,
+  );
+
+  return keys[bestKeyIndex];
+}
+
+/**
  * Rate limiting checker (5 menit antara request)
  */
 async function checkRateLimit() {
@@ -67,7 +156,7 @@ async function checkRateLimit() {
       const remainingMs = RATE_LIMIT_MS - timeSinceLastRequest;
       const remainingSec = Math.ceil(remainingMs / 1000);
       throw new Error(
-        `⏳ Rate limit: tunggu ${remainingSec} detik lagi (max 15 req/menit)`
+        `⏳ Rate limit: tunggu ${remainingSec} detik lagi (max 15 req/menit)`,
       );
     }
 
@@ -92,7 +181,7 @@ async function generateRenungan(verseRef, specialDay = null) {
   await checkRateLimit();
 
   const provider = getProvider();
-  const apiKey = process.env.AI_API_KEY;
+  const apiKey = getApiKey(provider); // Use rotation
   const model = process.env.AI_MODEL || "moonshotai/kimi-k2:free";
 
   if (!apiKey) {
@@ -179,7 +268,7 @@ Tuhan Yesus memberkati kita semua💗✨
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(
-        `🤖 AI Request ke ${provider.toUpperCase()} (${attempt}/${maxRetries})...`
+        `🤖 AI Request ke ${provider.toUpperCase()} (${attempt}/${maxRetries})...`,
       );
 
       let response;
@@ -207,7 +296,7 @@ Tuhan Yesus memberkati kita semua💗✨
               "X-Title": "WhatsApp Telegram Bot",
             },
             timeout: 60000,
-          }
+          },
         );
 
         const generatedText = response.data?.choices?.[0]?.message?.content;
@@ -224,7 +313,7 @@ Tuhan Yesus memberkati kita semua💗✨
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
           },
-          { timeout: 60000 }
+          { timeout: 60000 },
         );
 
         const generatedText =
@@ -271,7 +360,7 @@ Tuhan Yesus memberkati kita semua💗✨
           const waitTime =
             error.response.status === 429 ? 5000 : 2000 * attempt;
           console.log(
-            `⏳ Server error/rate limit, retry dalam ${waitTime / 1000}s...`
+            `⏳ Server error/rate limit, retry dalam ${waitTime / 1000}s...`,
           );
           await new Promise((resolve) => setTimeout(resolve, waitTime));
           continue;
@@ -282,7 +371,7 @@ Tuhan Yesus memberkati kita semua💗✨
           throw new Error(
             `⚠️ Model OpenRouter penuh. Bot akan coba lagi besok pagi jam ${
               process.env.RENUNGAN_TIME || "08:00"
-            }. Atau ganti model di .env`
+            }. Atau ganti model di .env`,
           );
         }
       }
@@ -465,7 +554,7 @@ Tuhan Yesus memberkati! 🙏💕
             "X-Title": "WhatsApp Telegram Bot",
           },
           timeout: 30000,
-        }
+        },
       );
       return response.data?.choices?.[0]?.message?.content?.trim();
     }
@@ -506,7 +595,7 @@ async function testAIConnection() {
             "X-Title": "WhatsApp Telegram Bot",
           },
           timeout: 15000,
-        }
+        },
       );
 
       if (response.data?.choices?.[0]?.message) {

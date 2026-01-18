@@ -29,13 +29,13 @@ console.log(`
   console.log(
     `📅 ${new Date().toLocaleString("id-ID", {
       timeZone: process.env.TIMEZONE,
-    })}`
+    })}`,
   );
   console.log(`⏰ Timezone: ${process.env.TIMEZONE || "Asia/Makassar"}`);
   console.log("─".repeat(50));
 
   // Validasi konfigurasi
-  const requiredEnv = ["TELEGRAM_BOT_TOKEN", "AI_API_KEY"];
+  const requiredEnv = ["TELEGRAM_BOT_TOKEN", "GEMINI_API_KEY"];
   const missingEnv = requiredEnv.filter((key) => !process.env[key]);
 
   if (missingEnv.length > 0) {
@@ -66,12 +66,12 @@ console.log(`
       console.log(
         `   📖 Renungan: ${config.renunganTime} → Grup: ${
           config.renunganGroupId || "Belum diatur"
-        }`
+        }`,
       );
       console.log(
         `   🎂 Birthday: ${config.birthdayTime} → Grup: ${
           config.birthdayGroupId || "Belum diatur"
-        }`
+        }`,
       );
     }
 
@@ -99,11 +99,11 @@ console.log(`
     console.log("");
     console.log(
       "📖 Renungan harian akan dikirim jam " +
-        (process.env.RENUNGAN_TIME || "08:00")
+        (process.env.RENUNGAN_TIME || "08:00"),
     );
     console.log(
       "🎂 Cek ulang tahun akan dilakukan jam " +
-        (process.env.BIRTHDAY_TIME || "07:00")
+        (process.env.BIRTHDAY_TIME || "07:00"),
     );
     console.log("");
     console.log("💡 Gunakan Telegram Bot untuk mengontrol sistem");
