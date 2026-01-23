@@ -171,10 +171,10 @@ Konfigurasi:
   Name: wa-bot-renungan
   Region: us-central1 (Iowa) ← GRATIS SELAMANYA
   Zone: us-central1-a
-  
+
   Machine type: e2-micro (2 vCPU, 1 GB RAM) ← GRATIS
   Boot disk: Ubuntu 22.04 LTS, 30 GB
-  
+
 Klik: Create
 ```
 
@@ -241,6 +241,7 @@ pm2 startup
 #### 5. Scan QR WhatsApp
 
 QR akan muncul di:
+
 - Terminal: `pm2 logs wa-renungan`
 - **Telegram**: Otomatis terkirim ke admin!
 
@@ -248,15 +249,16 @@ QR akan muncul di:
 
 ### 💰 GCP Free Tier - e2-micro Specs:
 
-| Resource | Gratis | Cukup untuk Bot? |
-|----------|--------|------------------|
-| vCPU | 2 (shared) | ✅ Yes |
-| RAM | 1 GB | ✅ Yes (bot pakai ~250MB) |
-| Storage | 30 GB | ✅ Yes (bot pakai ~500MB) |
-| Egress | 1 GB/month | ✅ Yes (bot pakai ~50MB/month) |
-| **Biaya** | **$0/month** | **GRATIS SELAMANYA!** |
+| Resource  | Gratis       | Cukup untuk Bot?               |
+| --------- | ------------ | ------------------------------ |
+| vCPU      | 2 (shared)   | ✅ Yes                         |
+| RAM       | 1 GB         | ✅ Yes (bot pakai ~250MB)      |
+| Storage   | 30 GB        | ✅ Yes (bot pakai ~500MB)      |
+| Egress    | 1 GB/month   | ✅ Yes (bot pakai ~50MB/month) |
+| **Biaya** | **$0/month** | **GRATIS SELAMANYA!**          |
 
 **Syarat tetap gratis:**
+
 - Pakai 1 instance e2-micro di region: us-central1, us-west1, atau us-east1
 - Total egress < 1GB/month
 
@@ -307,14 +309,15 @@ df -h              # Disk
 
 Berdasarkan testing di production:
 
-| Metric | Usage | Percentage of e2-micro |
-|--------|-------|------------------------|
-| **RAM** | 200-300 MB | 20-30% (dari 1GB) |
-| **CPU** | 5-15% | 2-7% (dari 2 vCPU) |
-| **Disk** | 500 MB | 1.6% (dari 30GB) |
-| **Egress/month** | 50 MB | 5% (dari 1GB limit) |
+| Metric           | Usage      | Percentage of e2-micro |
+| ---------------- | ---------- | ---------------------- |
+| **RAM**          | 200-300 MB | 20-30% (dari 1GB)      |
+| **CPU**          | 5-15%      | 2-7% (dari 2 vCPU)     |
+| **Disk**         | 500 MB     | 1.6% (dari 30GB)       |
+| **Egress/month** | 50 MB      | 5% (dari 1GB limit)    |
 
 **Breakdown Disk:**
+
 - Node modules: 200 MB
 - Chromium cache: 150 MB
 - WhatsApp session: 100 MB
@@ -322,6 +325,7 @@ Berdasarkan testing di production:
 - Logs: 40 MB
 
 **Breakdown Egress (per bulan):**
+
 - Renungan harian (30 hari): ~15 MB (500KB × 30)
 - AI requests: ~10 MB
 - Telegram messages: ~5 MB
@@ -420,7 +424,6 @@ Bot dikontrol sepenuhnya via Telegram. Kirim `/start` untuk melihat menu:
   - 🔄 **Reset status ayat** (mulai dari awal lagi)
   - ⏰ Ubah jadwal renungan
 - 🎂 **Ulang Tahun**
-
   - Kirim ucapan manual
   - Lihat data dari Google Sheets
   - Ubah jadwal cek ulang tahun
@@ -564,6 +567,7 @@ File penting untuk di-backup:
 ## 📊 Spesifikasi Teknis & Resource Usage
 
 ### Lokal Development:
+
 - **RAM Usage:** ~200-300 MB
 - **CPU Usage:** 5-15% (saat idle), 30-50% (saat generate AI)
 - **Disk Usage:** ~500 MB total
@@ -573,12 +577,14 @@ File penting untuk di-backup:
   - Data & logs: 50 MB
 
 ### Production (GCP e2-micro):
+
 - **RAM:** 250 MB average (25% dari 1GB)
 - **CPU:** 5-10% average (2-5% dari 2 vCPU)
 - **Disk:** 500 MB (1.6% dari 30GB)
 - **Egress:** ~50 MB/month (5% dari 1GB limit)
 
 ### Dependencies:
+
 - **Node.js:** v16+ (recommended v20)
 - **Main Packages:**
   - whatsapp-web.js: ~50 MB
@@ -588,18 +594,20 @@ File penting untuk di-backup:
   - googleapis: ~30 MB
 
 ### Scheduled Tasks:
+
 - **Renungan:** 08:00 daily (1 request/day)
 - **Birthday:** 07:00 daily (1 request/day jika ada ulang tahun)
 - **AI Requests:** 1-2 request/day (renungan + birthday)
 
 ### Network Usage:
-| Activity | Size | Frequency |
-|----------|------|-----------|
-| Renungan harian | ~500 KB | 1×/day |
-| AI request (Gemini) | ~10 KB | 1-2×/day |
-| Telegram messages | ~5 KB | Variable |
-| WhatsApp session sync | ~1 MB | 1×/day |
-| **Total/month** | **~50 MB** | **Safe!** |
+
+| Activity              | Size       | Frequency |
+| --------------------- | ---------- | --------- |
+| Renungan harian       | ~500 KB    | 1×/day    |
+| AI request (Gemini)   | ~10 KB     | 1-2×/day  |
+| Telegram messages     | ~5 KB      | Variable  |
+| WhatsApp session sync | ~1 MB      | 1×/day    |
+| **Total/month**       | **~50 MB** | **Safe!** |
 
 **Kesimpulan:** Bot SANGAT HEMAT! Cocok untuk free tier, masih bisa tambah 5-10 fitur lagi! 💪
 
@@ -771,54 +779,63 @@ Jika gagal kirim karena jaringan:
 Ide fitur tambahan yang masih dalam GCP Free Tier:
 
 ### 1. **Doa Harian** 📿
+
 - Template doa untuk pagi/siang/malam
 - Doa kategori: Syukur, Permohonan, Pengakuan Dosa
 - Schedule tambahan jam 12:00 & 18:00
 - **Impact:** +2 cron jobs, ~10KB storage
 
 ### 2. **Verse of the Week** 🗓️
+
 - Ayat hafalan mingguan
 - Kirim hari Minggu jam 06:00
 - Reminder hari Rabu: "Sudah hafal ayat minggu ini?"
 - **Impact:** +1 file JSON, +2 cron jobs
 
 ### 3. **Interactive Quiz** 🎮
+
 - Quiz alkitab simple via WhatsApp
 - Command: `/quiz` → bot kirim pertanyaan
 - Tracking score per user
 - **Impact:** +50KB storage (JSON leaderboard)
 
 ### 4. **Prayer Request** 🙏
+
 - User kirim request doa ke grup
 - Bot compile jadi list
 - Kirim summary setiap Minggu
 - **Impact:** +100KB storage
 
 ### 5. **Verse by Topic** 🔍
+
 - Command: `/ayat kasih` → bot kirim ayat tentang kasih
 - Search dari database verses
 - No AI needed → no API cost
 - **Impact:** Zero additional cost
 
 ### 6. **Reminder Custom** ⏰
+
 - User set reminder pribadi
 - "Ingatkan saya baca Alkitab jam 19:00"
 - Stored in JSON per user
 - **Impact:** +200KB storage
 
 ### 7. **Streak Tracker** 🔥
+
 - Tracking berapa hari berturut-turut baca renungan
 - Gamification: Badge (🏆 7 hari, ⭐ 30 hari, 💎 100 hari)
 - Motivasi user tetap konsisten
 - **Impact:** +50KB storage
 
 ### 8. **Multi-Language** 🌍
+
 - Renungan dalam Bahasa Indonesia & Inggris
 - Toggle language via Telegram
 - Share ke lebih banyak orang
 - **Impact:** +2x verses file size (~200KB)
 
 **Semua fitur di atas masih dalam GCP Free Tier karena:**
+
 - ✅ Storage < 1GB
 - ✅ Egress < 5GB/month
 - ✅ CPU usage minimal

@@ -25,3 +25,12 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+# Chromium
+chromium/
+
+# Python virtual environment
+.venv/
+
+# Temporary files
+*.tmp
+*.bak
