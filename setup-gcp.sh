@@ -45,28 +45,18 @@ echo "⚙️ Optimizing swappiness..."
 sudo sysctl vm.swappiness=10
 echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
 
-# 7. Clone repository
-echo "📥 Cloning repository..."
-if [ ! -d "whatsapp-telegram-bot" ]; then
-    git clone https://github.com/jhopan/JhopanWaBotRenungan.git whatsapp-telegram-bot
-    cd whatsapp-telegram-bot
-else
-    cd whatsapp-telegram-bot
-    git pull
-fi
-
-# 8. Install dependencies
+# 7. Install dependencies (asumsi sudah di dalam folder repo)
 echo "📦 Installing Node.js dependencies..."
 npm install --production
 
-# 9. Setup Firewall untuk Webhook (port 3000)
+# 8. Setup Firewall untuk Webhook (port 3000)
 echo "🔥 Setting up Firewall..."
 gcloud compute firewall-rules create allow-webhook \
   --allow tcp:3000 \
   --source-ranges 0.0.0.0/0 \
   --description "Allow webhook from Cloudflare Worker" 2>/dev/null || echo "⚠️ Firewall rule already exists"
 
-# 10. Setup environment variables
+# 9. Setup environment variables
 echo "⚙️ Setting up environment variables..."
 if [ ! -f .env ]; then
     echo "Creating .env file..."
@@ -118,11 +108,11 @@ else
     echo "✅ .env already exists"
 fi
 
-# 11. Create logs directory
+# 10. Create logs directory
 echo "📁 Creating logs directory..."
 mkdir -p logs
 
-# 12. Get External IP
+# 11. Get External IP
 echo ""
 echo "📡 Getting External IP..."
 EXTERNAL_IP=$(curl -s ifconfig.me)
