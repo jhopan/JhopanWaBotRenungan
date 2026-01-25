@@ -55,6 +55,7 @@ npm install
 ### 2. Setup Cloudflare Worker (WAJIB untuk GCP Free Tier)
 
 **A. Buat Worker:**
+
 ```bash
 # 1. Login ke https://dash.cloudflare.com/workers
 # 2. Klik "Create a Worker"
@@ -62,13 +63,15 @@ npm install
 ```
 
 **B. Edit Worker:**
+
 ```javascript
 // Ganti IP External GCP kamu
-const GCP_VM_IP = "YOUR_GCP_EXTERNAL_IP"  // ← Cek: curl ifconfig.me
-const GCP_PORT = 3000
+const GCP_VM_IP = "YOUR_GCP_EXTERNAL_IP"; // ← Cek: curl ifconfig.me
+const GCP_PORT = 3000;
 ```
 
 **C. Deploy & Get URL:**
+
 ```
 Deploy → Dapatkan URL: https://your-worker.workers.dev
 ```
@@ -81,6 +84,7 @@ nano .env
 ```
 
 Isi .env:
+
 ```env
 # Telegram
 TELEGRAM_BOT_TOKEN=123456:ABC-xyz
@@ -179,7 +183,7 @@ sudo systemctl start cloudflared
 
 ```
 Telegram polling:    ~750MB/month
-WhatsApp keep-alive: ~20MB/month  
+WhatsApp keep-alive: ~20MB/month
 AI API calls:        ~1.5MB/month
 ────────────────────────────────────
 Total:               ~772MB/month ⚠️ (77% kuota!)
@@ -208,6 +212,7 @@ Total Bandwidth:     ~40MB/month
 ```
 
 **Kenapa Worker Hemat?**
+
 - Ingress GCP = **GRATIS** (traffic masuk tidak kena quota)
 - Worker → GCP = HTTP ingress (gratis)
 - GCP → Telegram API = HTTPS egress (kena quota, tapi minimal)
