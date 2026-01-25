@@ -35,8 +35,9 @@ module.exports = {
       // Watch disabled (save CPU)
       watch: false,
 
-      // Cron restart (opsional - restart setiap hari jam 3 pagi)
-      // cron_restart: "0 3 * * *",
+      // Cron restart - restart setiap hari jam 3 pagi (WIB)
+      // Fungsi: Bersihkan memory leak, fresh start, prevent OOM
+      cron_restart: "0 3 * * *",
 
       // Kill timeout
       kill_timeout: 10000,
