@@ -14,9 +14,9 @@ echo ""
 echo "📦 Updating system packages..."
 sudo apt update && sudo apt upgrade -y
 
-# 2. Install Node.js 18
-echo "📦 Installing Node.js 18..."
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+# 2. Install Node.js 20 (LTS)
+echo "📦 Installing Node.js 20 LTS..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
 # 3. Install Chromium
