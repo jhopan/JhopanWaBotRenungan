@@ -1,5 +1,12 @@
 {
   "renunganGroupId": "120363419779170358@g.us",
   "birthdayGroupId": "",
-  "renunganTime": "08:00"
+  "renunganTime": "08:00",
+  "birthdayTime": "07:00",
+  "hideTagEnabled": false,
+  "multiGroupEnabled": false,
+  "renunganGroups": [],
+  "multiGroupDelayMinutes": 2,
+  "birthdayAdminIds": [],
+  "lastUpdated": ""
 }

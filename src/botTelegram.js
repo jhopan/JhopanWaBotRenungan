@@ -1,38 +1,62 @@
 /**
  * Telegram Bot - Control Panel
  * Panel kontrol untuk mengatur WhatsApp Bot
- * Fokus: Renungan Harian & Ulang Tahun
+ * Fokus: Renungan Harian Multi-Group (Optimized for GCP Free Tier)
+ *
+ * MODE:
+ * - Webhook: Hemat bandwidth (recommended untuk GCP free tier)
+ * - Polling: Fallback jika tidak ada WEBHOOK_URL
  */
 
 const TelegramBot = require("node-telegram-bot-api");
+const express = require("express");
 const fs = require("fs-extra");
 const moment = require("moment-timezone");
 const wa = require("./botWhatsApp");
 const renungan = require("./renunganHandler");
-const birthday = require("./birthdayReminder");
-const sheets = require("./googleSheetService");
 const { testAIConnection, getProvider } = require("./services/aiService");
 const {
   loadConfig,
   saveConfig,
   setRenunganGroupId,
-  setBirthdayGroupId,
   setRenunganTime,
-  setBirthdayTime,
+  toggleHideTag,
+  toggleMultiGroup,
+  addRenunganGroup,
+  removeRenunganGroup,
+  setMultiGroupDelay,
 } = require("./utils/configManager");
 
 moment.tz.setDefault(process.env.TIMEZONE || "Asia/Makassar");
 
-// Inisialisasi bot dengan retry mechanism
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
-  polling: {
-    interval: 1000,
-    autoStart: true,
-    params: {
-      timeout: 10,
+// ============================================
+// BOT MODE: WEBHOOK vs POLLING
+// ============================================
+const WEBHOOK_URL = process.env.WEBHOOK_URL || null;
+const WEBHOOK_PORT = parseInt(process.env.WEBHOOK_PORT || "3000");
+const USE_WEBHOOK = !!WEBHOOK_URL;
+
+// Inisialisasi bot - NO polling jika pakai webhook
+let bot;
+let expressApp = null;
+
+if (USE_WEBHOOK) {
+  // Webhook mode - HEMAT BANDWIDTH
+  console.log("🌐 Telegram Bot Mode: WEBHOOK (hemat bandwidth)");
+  bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
+} else {
+  // Polling mode - Fallback
+  console.log("🔄 Telegram Bot Mode: POLLING (development mode)");
+  bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
+    polling: {
+      interval: 2000, // 2 detik (lebih hemat dari 1 detik)
+      autoStart: false, // Manual start
+      params: {
+        timeout: 30, // Long polling 30 detik (lebih hemat)
+      },
     },
-  },
-});
+  });
+}
 
 // Retry state untuk koneksi
 let pollingRetries = 0;
@@ -66,7 +90,7 @@ function denyAccess(chatId) {
   bot.sendMessage(
     chatId,
     "❌ *Akses Ditolak*\n\nAnda tidak memiliki izin untuk menggunakan bot ini.",
-    { parse_mode: "Markdown" }
+    { parse_mode: "Markdown" },
   );
 }
 
@@ -135,7 +159,6 @@ const mainMenuKeyboard = {
   reply_markup: {
     inline_keyboard: [
       [{ text: "📖 Renungan Harian", callback_data: "menu_renungan" }],
-      [{ text: "🎂 Ulang Tahun", callback_data: "menu_birthday" }],
       [{ text: "⚙️ Pengaturan", callback_data: "menu_settings" }],
       [{ text: "📊 Status Bot", callback_data: "menu_status" }],
     ],
@@ -202,7 +225,7 @@ bot.onText(/\/start/, async (msg) => {
             [{ text: "📱 Login WhatsApp", callback_data: "wa_login" }],
           ],
         },
-      }
+      },
     );
   }
 
@@ -223,13 +246,6 @@ bot.onText(/\/renungan/, async (msg) => {
   await showRenunganMenu(chatId, null);
 });
 
-bot.onText(/\/birthday/, async (msg) => {
-  const userId = msg.from.id;
-  const chatId = msg.chat.id;
-  if (!isAdmin(userId)) return denyAccess(chatId);
-  await showBirthdayMenu(chatId, null);
-});
-
 bot.onText(/\/testai/, async (msg) => {
   const userId = msg.from.id;
   const chatId = msg.chat.id;
@@ -242,7 +258,7 @@ bot.onText(/\/testai/, async (msg) => {
   if (result.success) {
     await safeSendMessage(
       chatId,
-      `✅ *AI Connected!*\n\nModel: ${result.model}`
+      `✅ *AI Connected!*\n\nModel: ${result.model}`,
     );
   } else {
     await safeSendMessage(chatId, `❌ *AI Error*\n\n${result.error}`);
@@ -282,10 +298,6 @@ bot.on("callback_query", async (query) => {
       return handleRenunganCallback(data, chatId, messageId, userId);
     }
 
-    if (data.startsWith("birthday_")) {
-      return handleBirthdayCallback(data, chatId, messageId, userId);
-    }
-
     if (data.startsWith("settings_")) {
       return handleSettingsCallback(data, chatId, messageId, userId);
     }
@@ -315,8 +327,6 @@ async function handleMenuCallback(data, chatId, messageId) {
   switch (data) {
     case "menu_renungan":
       return showRenunganMenu(chatId, messageId);
-    case "menu_birthday":
-      return showBirthdayMenu(chatId, messageId);
     case "menu_settings":
       return showSettingsMenu(chatId, messageId);
     case "menu_status":
@@ -333,11 +343,17 @@ async function showRenunganMenu(chatId, messageId) {
   const config = await loadConfig();
 
   const groupDisplay = config.renunganGroupId || "Belum diatur";
+  const hideTagStatus = config.hideTagEnabled ? "🟢 ON" : "🔴 OFF";
+  const multiGroupStatus = config.multiGroupEnabled ? "🟢 ON" : "🔴 OFF";
+  const groupCount = config.renunganGroups?.length || 0;
 
   const message = `📖 *Menu Renungan Harian*
 
 ⏰ Jadwal: ${config.renunganTime || "08:00"} WITA
-👥 Group: ${groupDisplay.substring(0, 20)}...
+👥 Group Utama: ${groupDisplay.substring(0, 20)}...
+
+📢 Hide Tag: ${hideTagStatus}
+📡 Multi-Group: ${multiGroupStatus} (${groupCount} grup)
 
 📊 Statistik Ayat:
 • Total: ${stats.total} ayat
@@ -351,6 +367,18 @@ Pilih aksi:`;
       inline_keyboard: [
         [{ text: "📤 Kirim Sekarang", callback_data: "renungan_send_now" }],
         [{ text: "👀 Preview Renungan", callback_data: "renungan_preview" }],
+        [
+          {
+            text: `📢 Hide Tag: ${hideTagStatus}`,
+            callback_data: "renungan_toggle_hidetag",
+          },
+        ],
+        [
+          {
+            text: `📡 Multi-Group: ${multiGroupStatus}`,
+            callback_data: "renungan_multigroup_menu",
+          },
+        ],
         [
           {
             text: "📝 Lihat Daftar Ayat",
@@ -391,7 +419,7 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
       if (savedPreview && Date.now() - savedPreview.timestamp < 3600000) {
         // Gunakan preview yang sudah dibuat (valid 1 jam)
         sendResult = await renungan.sendRenunganWithMessage(
-          savedPreview.message
+          savedPreview.message,
         );
         // Tambahkan data verse dari preview
         sendResult.verse = savedPreview.verse;
@@ -417,7 +445,7 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
                 [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
               ],
             },
-          }
+          },
         );
       } else {
         await safeEditMessage(
@@ -430,7 +458,7 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
                 [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
               ],
             },
-          }
+          },
         );
       }
       break;
@@ -441,7 +469,7 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
         {
           chat_id: chatId,
           message_id: messageId,
-        }
+        },
       );
 
       const preview = await renungan.previewRenungan();
@@ -472,7 +500,7 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
                 [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
               ],
             },
-          }
+          },
         );
       } else {
         await safeEditMessage(
@@ -485,7 +513,7 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
                 [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
               ],
             },
-          }
+          },
         );
       }
       break;
@@ -497,7 +525,7 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
       userStates.set(userId, { action: "add_verse", step: "verse", data: {} });
       await safeEditMessage(
         `➕ *Tambah Ayat Baru*\n\nKirim alamat ayat (contoh: Yohanes 3:16)\n\nKetik "batal" untuk membatalkan.`,
-        { chat_id: chatId, message_id: messageId }
+        { chat_id: chatId, message_id: messageId },
       );
       break;
 
@@ -515,7 +543,7 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
                 [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
               ],
             },
-          }
+          },
         );
       } else {
         await safeEditMessage(`❌ *Gagal reset ayat*\n\n${resetResult.error}`, {
@@ -529,7 +557,195 @@ async function handleRenunganCallback(data, chatId, messageId, userId) {
         });
       }
       break;
+
+    case "renungan_toggle_hidetag":
+      const newConfigHT = await toggleHideTag();
+      const htStatus = newConfigHT.hideTagEnabled ? "🟢 ON" : "🔴 OFF";
+      await safeSendMessage(
+        chatId,
+        `📢 *Hide Tag* berhasil diubah ke ${htStatus}\n\n${
+          newConfigHT.hideTagEnabled
+            ? "Semua member akan di-mention (tidak terlihat) saat renungan dikirim."
+            : "Renungan akan dikirim tanpa mention."
+        }`,
+      );
+      return showRenunganMenu(chatId, null);
+
+    case "renungan_multigroup_menu":
+      return showMultiGroupMenu(chatId, messageId);
+
+    case "renungan_toggle_multigroup":
+      const newConfigMG = await toggleMultiGroup();
+      const mgStatus = newConfigMG.multiGroupEnabled ? "🟢 ON" : "🔴 OFF";
+      await safeSendMessage(
+        chatId,
+        `📡 *Multi-Group* berhasil diubah ke ${mgStatus}\n\n${
+          newConfigMG.multiGroupEnabled
+            ? "Renungan akan dikirim ke beberapa grup dengan delay."
+            : "Renungan hanya dikirim ke grup utama."
+        }`,
+      );
+      return showMultiGroupMenu(chatId, null);
+
+    case "renungan_add_group":
+      userStates.set(userId, { action: "add_renungan_group" });
+      await safeEditMessage(
+        `➕ *Tambah Grup Renungan*\n\nKirim link invite atau Group ID:\n\n• https://chat.whatsapp.com/xxxxx\n• 6281234567890-1234567890@g.us\n\nKetik "batal" untuk membatalkan.`,
+        { chat_id: chatId, message_id: messageId },
+      );
+      break;
+
+    case "renungan_list_groups":
+      return showRenunganGroupsList(chatId, messageId);
+
+    case "renungan_set_delay":
+      userStates.set(userId, { action: "set_multigroup_delay" });
+      await safeEditMessage(
+        `⏱️ *Atur Delay Multi-Group*\n\nMasukkan delay dalam menit (1-10):\n\nContoh: 2\n\nKetik "batal" untuk membatalkan.`,
+        { chat_id: chatId, message_id: messageId },
+      );
+      break;
+
+    default:
+      // Handle remove group callback
+      if (data.startsWith("renungan_remove_group_")) {
+        const index = parseInt(data.replace("renungan_remove_group_", ""));
+        const config = await loadConfig();
+        const groups = config.renunganGroups || [];
+
+        if (index >= 0 && index < groups.length) {
+          const removedGroup = groups[index];
+          await removeRenunganGroup(removedGroup.id);
+          await safeSendMessage(
+            chatId,
+            `✅ Grup berhasil dihapus: ${removedGroup.name || removedGroup.id.substring(0, 20)}...`,
+          );
+        }
+        return showRenunganGroupsList(chatId, null);
+      }
+      break;
   }
+}
+
+/**
+ * Tampilkan menu Multi-Group
+ */
+async function showMultiGroupMenu(chatId, messageId) {
+  const config = await loadConfig();
+  const multiGroupStatus = config.multiGroupEnabled ? "🟢 ON" : "🔴 OFF";
+  const groups = config.renunganGroups || [];
+  const delay = config.multiGroupDelayMinutes || 2;
+
+  let groupList = "Tidak ada grup tambahan";
+  if (groups.length > 0) {
+    groupList = groups
+      .map((g, i) => `${i + 1}. ${g.name || g.id.substring(0, 20)}...`)
+      .join("\n");
+  }
+
+  const message = `📡 *Menu Multi-Group*
+
+Status: ${multiGroupStatus}
+Delay: ${delay} menit antar grup
+
+📋 Daftar Grup Tambahan:
+${groupList}
+
+_Grup utama: ${(config.renunganGroupId || "Belum diatur").substring(0, 20)}..._`;
+
+  const keyboard = {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: `${config.multiGroupEnabled ? "🔴 Matikan" : "🟢 Aktifkan"} Multi-Group`,
+            callback_data: "renungan_toggle_multigroup",
+          },
+        ],
+        [{ text: "➕ Tambah Grup", callback_data: "renungan_add_group" }],
+        [
+          {
+            text: "📋 Lihat/Hapus Grup",
+            callback_data: "renungan_list_groups",
+          },
+        ],
+        [{ text: "⏱️ Atur Delay", callback_data: "renungan_set_delay" }],
+        [{ text: "⬅️ Kembali", callback_data: "menu_renungan" }],
+      ],
+    },
+  };
+
+  if (messageId) {
+    return safeEditMessage(message, {
+      chat_id: chatId,
+      message_id: messageId,
+      ...keyboard,
+    });
+  }
+
+  return safeSendMessage(chatId, message, keyboard);
+}
+
+/**
+ * Tampilkan daftar grup renungan
+ */
+async function showRenunganGroupsList(chatId, messageId) {
+  const config = await loadConfig();
+  const groups = config.renunganGroups || [];
+
+  if (groups.length === 0) {
+    const message = `📋 *Daftar Grup Renungan*\n\nBelum ada grup tambahan.\nKlik tombol di bawah untuk menambah grup.`;
+
+    const keyboard = {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "➕ Tambah Grup", callback_data: "renungan_add_group" }],
+          [{ text: "⬅️ Kembali", callback_data: "renungan_multigroup_menu" }],
+        ],
+      },
+    };
+
+    if (messageId) {
+      return safeEditMessage(message, {
+        chat_id: chatId,
+        message_id: messageId,
+        ...keyboard,
+      });
+    }
+    return safeSendMessage(chatId, message, keyboard);
+  }
+
+  let message = `📋 *Daftar Grup Renungan*\n\n`;
+  message += groups
+    .map(
+      (g, i) =>
+        `${i + 1}. ${g.name || "Grup"}\n   ID: ${g.id.substring(0, 25)}...`,
+    )
+    .join("\n\n");
+
+  const keyboard = {
+    reply_markup: {
+      inline_keyboard: [
+        ...groups.map((g, i) => [
+          {
+            text: `🗑️ Hapus: ${(g.name || g.id).substring(0, 15)}...`,
+            callback_data: `renungan_remove_group_${i}`,
+          },
+        ]),
+        [{ text: "➕ Tambah Grup", callback_data: "renungan_add_group" }],
+        [{ text: "⬅️ Kembali", callback_data: "renungan_multigroup_menu" }],
+      ],
+    },
+  };
+
+  if (messageId) {
+    return safeEditMessage(message, {
+      chat_id: chatId,
+      message_id: messageId,
+      ...keyboard,
+    });
+  }
+  return safeSendMessage(chatId, message, keyboard);
 }
 
 /**
@@ -566,7 +782,7 @@ async function showCategoryMenu(chatId, messageId) {
 
   // Urutkan kategori berdasarkan jumlah ayat (terbanyak di atas)
   const sortedCategories = Object.entries(categoryCount).sort(
-    (a, b) => b[1] - a[1]
+    (a, b) => b[1] - a[1],
   );
 
   // Buat tombol kategori (2 kolom)
@@ -751,192 +967,16 @@ async function handleCategoryCallback(data, chatId, messageId, userId) {
   if (result.success) {
     await safeSendMessage(
       chatId,
-      `✅ *Ayat Berhasil Ditambahkan!*\n\n📖 ${state.data.verse}\n📁 Kategori: ${category}`
+      `✅ *Ayat Berhasil Ditambahkan!*\n\n📖 ${state.data.verse}\n📁 Kategori: ${category}`,
     );
   } else {
     await safeSendMessage(
       chatId,
-      `❌ *Gagal Menambahkan Ayat*\n\n${result.error}`
+      `❌ *Gagal Menambahkan Ayat*\n\n${result.error}`,
     );
   }
 
   await showRenunganMenu(chatId, null);
-}
-
-// ============================================
-// BIRTHDAY MENU
-// ============================================
-
-async function showBirthdayMenu(chatId, messageId) {
-  const config = await loadConfig();
-  const upcoming = await birthday.getUpcoming(7);
-  const today = await sheets.getBirthdaysToday();
-
-  let upcomingText = "Tidak ada";
-  if (upcoming.length > 0) {
-    upcomingText = upcoming
-      .slice(0, 5)
-      .map((b) => `• ${b.name} (${b.fullDate})`)
-      .join("\n");
-  }
-
-  const groupDisplay = config.birthdayGroupId || "Personal";
-
-  const message = `🎂 *Menu Ulang Tahun*
-
-⏰ Jadwal Cek: ${config.birthdayTime || "07:00"} WITA
-👥 Group: ${groupDisplay.substring(0, 20)}...
-
-🎉 Hari Ini: ${today.length} orang
-${today.length > 0 ? today.map((t) => `  • ${t.name}`).join("\n") : ""}
-
-📅 7 Hari ke Depan:
-${upcomingText}
-
-Pilih aksi:`;
-
-  const keyboard = {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: "📤 Kirim Ucapan Sekarang",
-            callback_data: "birthday_send_now",
-          },
-        ],
-        [{ text: "📋 Lihat Semua Data", callback_data: "birthday_view_all" }],
-        [
-          {
-            text: "📊 Info Google Sheet",
-            callback_data: "birthday_sheet_info",
-          },
-        ],
-        [{ text: "⏰ Atur Jadwal", callback_data: "settings_birthday_time" }],
-        [{ text: "⬅️ Kembali", callback_data: "back_main" }],
-      ],
-    },
-  };
-
-  if (messageId) {
-    return safeEditMessage(message, {
-      chat_id: chatId,
-      message_id: messageId,
-      ...keyboard,
-    });
-  }
-
-  return safeSendMessage(chatId, message, keyboard);
-}
-
-async function handleBirthdayCallback(data, chatId, messageId) {
-  switch (data) {
-    case "birthday_send_now":
-      await safeEditMessage("⏳ *Mengirim ucapan ulang tahun...*", {
-        chat_id: chatId,
-        message_id: messageId,
-      });
-
-      const result = await birthday.processBirthdays();
-
-      if (result.success) {
-        let resultMsg = `✅ *Proses Selesai*\n\n`;
-        if (result.count === 0) {
-          resultMsg += "Tidak ada yang berulang tahun hari ini.";
-        } else {
-          resultMsg += `🎂 Total: ${result.count} orang\n`;
-          resultMsg += `✅ Terkirim: ${result.sent}\n`;
-          resultMsg += `❌ Gagal: ${result.failed}`;
-        }
-
-        await safeEditMessage(resultMsg, {
-          chat_id: chatId,
-          message_id: messageId,
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "⬅️ Kembali", callback_data: "menu_birthday" }],
-            ],
-          },
-        });
-      } else {
-        await safeEditMessage(`❌ *Gagal*\n\n${result.error}`, {
-          chat_id: chatId,
-          message_id: messageId,
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "⬅️ Kembali", callback_data: "menu_birthday" }],
-            ],
-          },
-        });
-      }
-      break;
-
-    case "birthday_view_all":
-      const all = await sheets.getAllBirthdays();
-      let allMsg = `📋 Data Ulang Tahun (${all.length} orang)\n\n`;
-
-      if (all.length === 0) {
-        allMsg += "Belum ada data.";
-      } else {
-        const sorted = all.sort((a, b) => {
-          const dateA = moment(a.date, ["DD-MM", "DD/MM"]);
-          const dateB = moment(b.date, ["DD-MM", "DD/MM"]);
-          return dateA.month() - dateB.month() || dateA.date() - dateB.date();
-        });
-
-        sorted.slice(0, 20).forEach((b, i) => {
-          allMsg += `${i + 1}. ${b.name} - ${b.date}\n`;
-        });
-
-        if (all.length > 20) {
-          allMsg += `\n... dan ${all.length - 20} lainnya`;
-        }
-      }
-
-      await bot.editMessageText(allMsg, {
-        chat_id: chatId,
-        message_id: messageId,
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "⬅️ Kembali", callback_data: "menu_birthday" }],
-          ],
-        },
-      });
-      break;
-
-    case "birthday_sheet_info":
-      const info = await sheets.getSpreadsheetInfo();
-
-      if (info) {
-        await safeEditMessage(
-          `📊 *Info Google Sheet*\n\n📄 Nama: ${
-            info.title
-          }\n📑 Sheets: ${info.sheets.join(", ")}`,
-          {
-            chat_id: chatId,
-            message_id: messageId,
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "⬅️ Kembali", callback_data: "menu_birthday" }],
-              ],
-            },
-          }
-        );
-      } else {
-        await safeEditMessage(
-          "❌ *Gagal mengambil info sheet*\n\nPastikan credentials dan SPREADSHEET ID sudah benar.",
-          {
-            chat_id: chatId,
-            message_id: messageId,
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "⬅️ Kembali", callback_data: "menu_birthday" }],
-              ],
-            },
-          }
-        );
-      }
-      break;
-  }
 }
 
 // ============================================
@@ -954,13 +994,10 @@ async function showSettingsMenu(chatId, messageId) {
 📖 Renungan:
 • Waktu: ${config.renunganTime || "08:00"} WITA
 • Group ID: ${config.renunganGroupId ? "Sudah diatur" : "Belum diatur"}
-
-🎂 Ulang Tahun:
-• Waktu: ${config.birthdayTime || "07:00"} WITA
-• Group ID: ${config.birthdayGroupId ? "Sudah diatur" : "Personal"}
+• Multi-Group: ${config.multiGroupEnabled ? "🟢 ON" : "🔴 OFF"}
 
 🤖 AI Provider: ${getProvider().toUpperCase()}
-💡 Model: ${process.env.AI_MODEL}
+💡 Model: ${process.env.AI_MODEL || "gemini-pro"}
 
 Pilih pengaturan:`;
 
@@ -975,20 +1012,8 @@ Pilih pengaturan:`;
         ],
         [
           {
-            text: "🎂 Atur Group Birthday",
-            callback_data: "settings_birthday_group",
-          },
-        ],
-        [
-          {
             text: "⏰ Atur Jadwal Renungan",
             callback_data: "settings_renungan_time",
-          },
-        ],
-        [
-          {
-            text: "⏰ Atur Jadwal Birthday",
-            callback_data: "settings_birthday_time",
           },
         ],
         [{ text: "🤖 Test AI Connection", callback_data: "settings_test_ai" }],
@@ -1026,28 +1051,7 @@ Kirim salah satu dari:
    Format: 6281234567890-1234567890@g.us
 
 Ketik "batal" untuk membatalkan.`,
-        { chat_id: chatId, message_id: messageId }
-      );
-      break;
-
-    case "settings_birthday_group":
-      userStates.set(userId, { action: "set_birthday_group" });
-      await safeEditMessage(
-        `⚙️ *Atur Group ID Birthday*
-
-Kirim salah satu dari:
-
-1️⃣ *Link Invite WhatsApp*
-   https://chat.whatsapp.com/xxxxx
-   _Bot akan otomatis join dan ambil Group ID_
-
-2️⃣ *Group ID Langsung*
-   Format: 6281234567890-1234567890@g.us
-
-3️⃣ Ketik "personal" untuk kirim ke masing-masing
-
-Ketik "batal" untuk membatalkan.`,
-        { chat_id: chatId, message_id: messageId }
+        { chat_id: chatId, message_id: messageId },
       );
       break;
 
@@ -1071,31 +1075,7 @@ Ketik "batal" untuk membatalkan.`,
               [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
             ],
           },
-        }
-      );
-      break;
-
-    case "settings_birthday_time":
-      await safeEditMessage(
-        "⏰ *Pilih Waktu Birthday*\n\nPilih jam pengiriman ucapan ulang tahun:",
-        {
-          chat_id: chatId,
-          message_id: messageId,
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: "06:00", callback_data: "time_birthday_06:00" },
-                { text: "07:00", callback_data: "time_birthday_07:00" },
-                { text: "08:00", callback_data: "time_birthday_08:00" },
-              ],
-              [
-                { text: "09:00", callback_data: "time_birthday_09:00" },
-                { text: "10:00", callback_data: "time_birthday_10:00" },
-              ],
-              [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
-            ],
-          },
-        }
+        },
       );
       break;
 
@@ -1118,7 +1098,7 @@ Ketik "batal" untuk membatalkan.`,
                 [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
               ],
             },
-          }
+          },
         );
       } else {
         await safeEditMessage(`❌ *AI Error*\n\n${aiResult.error}`, {
@@ -1148,7 +1128,7 @@ Ketik "batal" untuk membatalkan.`,
                 [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
               ],
             },
-          }
+          },
         );
       } else {
         await safeEditMessage(
@@ -1162,7 +1142,7 @@ Ketik "batal" untuk membatalkan.`,
                 [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
               ],
             },
-          }
+          },
         );
       }
       break;
@@ -1170,9 +1150,9 @@ Ketik "batal" untuk membatalkan.`,
 }
 
 async function handleTimeCallback(data, chatId, messageId) {
-  // Format: time_renungan_08:00 atau time_birthday_07:00
+  // Format: time_renungan_08:00
   const parts = data.replace("time_", "").split("_");
-  const type = parts[0]; // renungan atau birthday
+  const type = parts[0]; // renungan
   const time = parts[1]; // 08:00
 
   const config = await loadConfig();
@@ -1195,26 +1175,7 @@ async function handleTimeCallback(data, chatId, messageId) {
               [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
             ],
           },
-        }
-      );
-    } else if (type === "birthday") {
-      config.birthdayTime = time;
-      await saveConfig(config);
-
-      // Restart scheduler langsung tanpa restart bot
-      birthday.restartBirthdayScheduler(time);
-
-      await safeEditMessage(
-        `✅ *Jadwal Birthday Diperbarui!*\n\nWaktu: ${time} WITA\n\n✨ Scheduler sudah aktif, tidak perlu restart bot!`,
-        {
-          chat_id: chatId,
-          message_id: messageId,
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
-            ],
-          },
-        }
+        },
       );
     }
   } catch (error) {
@@ -1239,7 +1200,7 @@ async function handleWACallback(data, chatId, messageId, userId) {
         {
           chat_id: chatId,
           message_id: messageId,
-        }
+        },
       );
       break;
 
@@ -1256,7 +1217,7 @@ async function handleWACallback(data, chatId, messageId, userId) {
                 [{ text: "⬅️ Kembali", callback_data: "menu_settings" }],
               ],
             },
-          }
+          },
         );
       } catch (error) {
         await safeEditMessage(`❌ *Gagal Logout*\n\n${error.message}`, {
@@ -1281,8 +1242,12 @@ async function showStatus(chatId, messageId = null) {
   const waConnected = await wa.isConnected();
   const waState = wa.getConnectionState();
   const stats = await renungan.getVersesStats();
-  const todayBirthdays = await sheets.getBirthdaysToday();
   const config = await loadConfig();
+
+  // Memory usage
+  const used = process.memoryUsage();
+  const heapMB = Math.round(used.heapUsed / 1024 / 1024);
+  const rssMB = Math.round(used.rss / 1024 / 1024);
 
   const message = `📊 *Status Bot*
 
@@ -1295,12 +1260,13 @@ async function showStatus(chatId, messageId = null) {
 📖 Renungan:
 • Ayat tersedia: ${stats.unused}/${stats.total}
 • Jadwal: ${config.renunganTime || "08:00"} WITA
+• Multi-Group: ${config.multiGroupEnabled ? "🟢 ON" : "🔴 OFF"}
 
-🎂 Ulang Tahun:
-• Hari ini: ${todayBirthdays.length} orang
-• Jadwal: ${config.birthdayTime || "07:00"} WITA
+🤖 AI: ${getProvider()} (${process.env.AI_MODEL || "gemini-pro"})
 
-🤖 AI: ${getProvider()} (${process.env.AI_MODEL})
+💾 Memory:
+• Heap: ${heapMB}MB
+• RSS: ${rssMB}MB
 
 ⏰ Server:
 • Waktu: ${moment().format("HH:mm:ss")}
@@ -1359,7 +1325,7 @@ bot.on("message", async (msg) => {
         if (text.includes("chat.whatsapp.com/")) {
           await safeSendMessage(
             chatId,
-            "⏳ *Memproses link invite...*\n\nMencoba join grup..."
+            "⏳ *Memproses link invite...*\n\nMencoba join grup...",
           );
 
           const joinResult = await wa.joinGroupByInviteLink(text);
@@ -1373,13 +1339,13 @@ bot.on("message", async (msg) => {
             userStates.delete(userId);
             await safeSendMessage(
               chatId,
-              `✅ *Berhasil Join Grup!*\n\nGroup ID: ${joinResult.groupId}\n\n📖 Renungan akan dikirim ke grup ini.`
+              `✅ *Berhasil Join Grup!*\n\nGroup ID: ${joinResult.groupId}\n\n📖 Renungan akan dikirim ke grup ini.`,
             );
             await showSettingsMenu(chatId, null);
           } else {
             await safeSendMessage(
               chatId,
-              `❌ *Gagal Join Grup*\n\n${joinResult.error}\n\nSilakan coba lagi atau masukkan Group ID manual.`
+              `❌ *Gagal Join Grup*\n\n${joinResult.error}\n\nSilakan coba lagi atau masukkan Group ID manual.`,
             );
           }
           return;
@@ -1394,70 +1360,71 @@ bot.on("message", async (msg) => {
         userStates.delete(userId);
         await safeSendMessage(
           chatId,
-          `✅ *Group ID Renungan Diatur*\n\n${groupId.substring(0, 40)}...`
+          `✅ *Group ID Renungan Diatur*\n\n${groupId.substring(0, 40)}...`,
         );
         await showSettingsMenu(chatId, null);
         break;
 
-      case "set_birthday_group":
-        // Handle "personal"
-        if (text.toLowerCase() === "personal") {
-          const config2 = await loadConfig();
-          config2.birthdayGroupId = "";
-          await saveConfig(config2);
-          process.env.BIRTHDAY_GROUP_ID = "";
+      case "add_renungan_group":
+        let addGroupId = text;
+        let addGroupName = "";
 
-          userStates.delete(userId);
-          await safeSendMessage(
-            chatId,
-            "✅ Ucapan ulang tahun akan dikirim ke masing-masing."
-          );
-          await showSettingsMenu(chatId, null);
-          return;
-        }
-
-        // Handle link invite
+        // Cek apakah ini link invite WhatsApp
         if (text.includes("chat.whatsapp.com/")) {
           await safeSendMessage(
             chatId,
-            "⏳ *Memproses link invite...*\n\nMencoba join grup..."
+            "⏳ *Memproses link invite...*\n\nMencoba mendapatkan info grup...",
           );
 
-          const joinResult = await wa.joinGroupByInviteLink(text);
+          // Coba dapatkan info grup dulu
+          const groupInfo = await wa.getGroupInfoFromInviteLink(text);
 
-          if (joinResult.success) {
-            const config2 = await loadConfig();
-            config2.birthdayGroupId = joinResult.groupId;
-            await saveConfig(config2);
-            process.env.BIRTHDAY_GROUP_ID = joinResult.groupId;
-
-            userStates.delete(userId);
-            await safeSendMessage(
-              chatId,
-              `✅ *Berhasil Join Grup!*\n\nGroup ID: ${joinResult.groupId}\n\n🎂 Ucapan ulang tahun akan dikirim ke grup ini.`
-            );
-            await showSettingsMenu(chatId, null);
+          if (groupInfo.success) {
+            addGroupId = groupInfo.groupId;
+            addGroupName = groupInfo.groupName || "";
           } else {
-            await safeSendMessage(
-              chatId,
-              `❌ *Gagal Join Grup*\n\n${joinResult.error}\n\nSilakan coba lagi atau masukkan Group ID manual.`
-            );
+            // Kalau gagal dapat info, coba join
+            const joinResult = await wa.joinGroupByInviteLink(text);
+            if (joinResult.success) {
+              addGroupId = joinResult.groupId;
+            } else {
+              await safeSendMessage(
+                chatId,
+                `❌ *Gagal Memproses Link*\n\n${joinResult.error || groupInfo.error}\n\nSilakan coba masukkan Group ID manual.`,
+              );
+              return;
+            }
           }
-          return;
         }
 
-        // Handle Group ID manual
-        const config2 = await loadConfig();
-        config2.birthdayGroupId = text;
-        await saveConfig(config2);
-        process.env.BIRTHDAY_GROUP_ID = text;
+        // Tambahkan grup ke daftar
+        await addRenunganGroup(addGroupId, addGroupName);
 
         userStates.delete(userId);
         await safeSendMessage(
           chatId,
-          `✅ *Group ID Birthday Diatur*\n\n${text.substring(0, 40)}...`
+          `✅ *Grup Berhasil Ditambahkan!*\n\n📛 Nama: ${addGroupName || "Tidak diketahui"}\n🆔 ID: ${addGroupId.substring(0, 30)}...`,
         );
-        await showSettingsMenu(chatId, null);
+        await showMultiGroupMenu(chatId, null);
+        break;
+
+      case "set_multigroup_delay":
+        const delayMinutes = parseInt(text);
+        if (isNaN(delayMinutes) || delayMinutes < 1 || delayMinutes > 10) {
+          await safeSendMessage(
+            chatId,
+            "❌ Delay harus angka antara 1-10 menit. Coba lagi.",
+          );
+          return;
+        }
+
+        await setMultiGroupDelay(delayMinutes);
+        userStates.delete(userId);
+        await safeSendMessage(
+          chatId,
+          `✅ *Delay Multi-Group Diatur*\n\nDelay: ${delayMinutes} menit antar grup`,
+        );
+        await showMultiGroupMenu(chatId, null);
         break;
     }
   } catch (error) {
@@ -1510,7 +1477,7 @@ async function restartTelegramPolling() {
 
   const delay = Math.min(
     POLLING_RETRY_DELAY * Math.pow(2, pollingRetries),
-    60000
+    60000,
   );
 
   console.log(`⏳ Mencoba reconnect Telegram dalam ${delay / 1000}s...`);
@@ -1531,7 +1498,7 @@ async function restartTelegramPolling() {
         restartTelegramPolling();
       } else {
         console.error(
-          "❌ Max retries tercapai. Bot akan menunggu koneksi kembali."
+          "❌ Max retries tercapai. Bot akan menunggu koneksi kembali.",
         );
         isOnline = false;
       }
@@ -1544,8 +1511,103 @@ function startTelegramBot() {
   console.log(
     `👮 Admin IDs: ${
       ADMIN_IDS.length > 0 ? ADMIN_IDS.join(", ") : "Belum diatur!"
-    }`
+    }`,
   );
+
+  if (USE_WEBHOOK) {
+    // ============================================
+    // WEBHOOK MODE - HEMAT BANDWIDTH
+    // ============================================
+    setupWebhook();
+  } else {
+    // ============================================
+    // POLLING MODE - Development/Fallback
+    // ============================================
+    setupPolling();
+  }
+}
+
+/**
+ * Setup Webhook mode - HEMAT BANDWIDTH
+ * Telegram kirim update ke server kita, bukan kita yang request
+ */
+function setupWebhook() {
+  const webhookPath = `/bot${process.env.TELEGRAM_BOT_TOKEN}`;
+  const fullWebhookUrl = `${WEBHOOK_URL}${webhookPath}`;
+
+  // Create Express app
+  expressApp = express();
+  expressApp.use(express.json());
+
+  // Health check endpoint
+  expressApp.get("/health", (req, res) => {
+    res.json({
+      status: "ok",
+      mode: "webhook",
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Webhook endpoint
+  expressApp.post(webhookPath, (req, res) => {
+    try {
+      bot.processUpdate(req.body);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("❌ Webhook processing error:", error.message);
+      res.sendStatus(500);
+    }
+  });
+
+  // Start Express server
+  expressApp.listen(WEBHOOK_PORT, async () => {
+    console.log(`🌐 Webhook server listening on port ${WEBHOOK_PORT}`);
+
+    // Set webhook di Telegram
+    try {
+      // Hapus webhook lama dulu
+      await bot.deleteWebHook();
+
+      // Set webhook baru
+      const result = await bot.setWebHook(fullWebhookUrl, {
+        max_connections: 10, // Hemat resource
+        allowed_updates: ["message", "callback_query"], // Hanya yang diperlukan
+        drop_pending_updates: true, // Abaikan update lama
+      });
+
+      if (result) {
+        console.log(`✅ Webhook berhasil diset: ${WEBHOOK_URL}`);
+        console.log(`📊 Mode: WEBHOOK (hemat ~97% bandwidth)`);
+
+        // Verify webhook
+        const webhookInfo = await bot.getWebHookInfo();
+        console.log(`🔗 Webhook URL: ${webhookInfo.url}`);
+        console.log(
+          `📬 Pending updates: ${webhookInfo.pending_update_count || 0}`,
+        );
+      }
+    } catch (error) {
+      console.error("❌ Gagal set webhook:", error.message);
+      console.log("🔄 Fallback ke polling mode...");
+
+      // Fallback ke polling
+      expressApp = null;
+      setupPolling();
+    }
+  });
+}
+
+/**
+ * Setup Polling mode - Fallback/Development
+ * Bot terus request ke Telegram (boros bandwidth)
+ */
+function setupPolling() {
+  console.log("⚠️ Polling mode: ~25MB egress/day");
+  console.log("💡 Set WEBHOOK_URL di .env untuk hemat bandwidth");
+
+  // Start polling
+  bot.startPolling();
 
   // Handle polling errors dengan retry
   bot.on("polling_error", (error) => {
@@ -1585,7 +1647,7 @@ function startTelegramBot() {
     // Log error lainnya
     console.error(
       `❌ Telegram error [${errorCode}]:`,
-      errorMsg.substring(0, 100)
+      errorMsg.substring(0, 100),
     );
   });
 
@@ -1600,6 +1662,25 @@ function startTelegramBot() {
 }
 
 /**
+ * Get Express app untuk external use (jika diperlukan)
+ */
+function getExpressApp() {
+  return expressApp;
+}
+
+/**
+ * Get bot mode info
+ */
+function getBotMode() {
+  return {
+    mode: USE_WEBHOOK ? "webhook" : "polling",
+    webhookUrl: WEBHOOK_URL,
+    webhookPort: WEBHOOK_PORT,
+    bandwidthEstimate: USE_WEBHOOK ? "~1MB/month" : "~750MB/month",
+  };
+}
+
+/**
  * Kirim notifikasi error ke admin via Telegram
  */
 async function notifyAdminError(errorMessage) {
@@ -1609,7 +1690,7 @@ async function notifyAdminError(errorMessage) {
   }
 
   const message = `🚨 *Error Alert*\n\n${errorMessage}\n\n⏰ ${moment().format(
-    "DD/MM/YYYY HH:mm:ss"
+    "DD/MM/YYYY HH:mm:ss",
   )}`;
 
   for (const adminId of ADMIN_IDS) {
@@ -1621,4 +1702,25 @@ async function notifyAdminError(errorMessage) {
   }
 }
 
-module.exports = { startTelegramBot, bot, notifyAdminError };
+/**
+ * Cleanup webhook saat shutdown
+ */
+async function cleanupWebhook() {
+  if (USE_WEBHOOK) {
+    try {
+      await bot.deleteWebHook();
+      console.log("🧹 Webhook dihapus");
+    } catch (error) {
+      console.error("❌ Gagal hapus webhook:", error.message);
+    }
+  }
+}
+
+module.exports = {
+  startTelegramBot,
+  bot,
+  notifyAdminError,
+  getExpressApp,
+  getBotMode,
+  cleanupWebhook,
+};

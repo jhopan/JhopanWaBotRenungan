@@ -10,6 +10,7 @@ const path = require("path");
 const moment = require("moment-timezone");
 const { generateRenungan, checkSpecialDay } = require("./services/aiService");
 const wa = require("./botWhatsApp");
+const { loadConfig } = require("./utils/configManager");
 
 moment.tz.setDefault(process.env.TIMEZONE || "Asia/Makassar");
 
@@ -36,7 +37,7 @@ async function loadVerses(year = null) {
       console.log(
         `⚠️ File verses tahun ${
           year || new Date().getFullYear()
-        } tidak ditemukan, gunakan generateYearlyVerses.js dulu`
+        } tidak ditemukan, gunakan generateYearlyVerses.js dulu`,
       );
       return { verses: [], specialDayVerses: {}, metadata: {} };
     }
@@ -88,7 +89,7 @@ async function getVerseForToday() {
 
     // Cek di specialDayVerses
     for (const [key, verseRef] of Object.entries(
-      versesData.specialDayVerses || {}
+      versesData.specialDayVerses || {},
     )) {
       if (specialKey.includes(key) || key.includes(specialKey)) {
         return { verseRef, specialDay, isSpecial: true };
@@ -123,7 +124,7 @@ async function getVerseForToday() {
   console.log(
     `📖 Verse dipilih: ${selectedVerse.verse} (${
       unusedVerses.length - 1
-    } tersisa)`
+    } tersisa)`,
   );
 
   return {
@@ -178,9 +179,12 @@ async function sendRenungan(isRetry = false) {
       // Schedule retry 10 menit kemudian jika belum retry
       if (!isRetry) {
         console.log("🔄 Akan retry dalam 10 menit...");
-        setTimeout(() => {
-          sendRenungan(true);
-        }, 10 * 60 * 1000); // 10 menit
+        setTimeout(
+          () => {
+            sendRenungan(true);
+          },
+          10 * 60 * 1000,
+        ); // 10 menit
       }
 
       return {
@@ -193,7 +197,7 @@ async function sendRenungan(isRetry = false) {
     console.log(
       isRetry
         ? "🔄 Retry kirim renungan..."
-        : "📖 Generating renungan harian..."
+        : "📖 Generating renungan harian...",
     );
 
     // Get referensi ayat hari ini
@@ -218,15 +222,66 @@ async function sendRenungan(isRetry = false) {
         await telegram.notifyAdminError(
           `❌ AI Error saat generate renungan\nAyat: ${verseRef}\nHari: ${
             specialDay || "Normal"
-          }`
+          }`,
         );
       }
 
       return { success: false, error: "AI error", verse: verseRef };
     }
 
-    // Kirim ke WhatsApp
-    await wa.sendMessage(groupId, message);
+    // Load config untuk cek hide tag dan multi-group
+    const config = await loadConfig();
+    const useHideTag = config.hideTagEnabled || false;
+    const useMultiGroup = config.multiGroupEnabled || false;
+    const renunganGroups = config.renunganGroups || [];
+    const delayMinutes = config.multiGroupDelayMinutes || 2;
+
+    // Fungsi helper untuk kirim ke satu grup
+    const sendToGroup = async (targetGroupId) => {
+      if (useHideTag) {
+        await wa.sendMessageWithHideTag(targetGroupId, message);
+      } else {
+        await wa.sendMessage(targetGroupId, message);
+      }
+      console.log(
+        `✅ Renungan terkirim ke ${targetGroupId} (hideTag: ${useHideTag})`,
+      );
+    };
+
+    // Kirim ke grup utama
+    await sendToGroup(groupId);
+
+    // Jika multi-group enabled, kirim ke grup lain dengan delay
+    if (useMultiGroup && renunganGroups.length > 0) {
+      console.log(
+        `📢 Multi-group mode: akan kirim ke ${renunganGroups.length} grup tambahan`,
+      );
+
+      for (let i = 0; i < renunganGroups.length; i++) {
+        const group = renunganGroups[i];
+        if (group.id === groupId) continue; // Skip grup utama
+
+        // Delay antara grup (1-3 menit acak atau sesuai config)
+        const delayMs = delayMinutes * 60 * 1000 + Math.random() * 60000;
+
+        setTimeout(
+          async () => {
+            try {
+              await sendToGroup(group.id);
+              console.log(
+                `✅ Renungan terkirim ke grup ${group.name || group.id}`,
+              );
+            } catch (err) {
+              console.error(
+                `❌ Gagal kirim ke grup ${group.name || group.id}:`,
+                err.message,
+              );
+            }
+          },
+          delayMs * (i + 1),
+        );
+      }
+    }
 
     console.log(`✅ Renungan terkirim ke ${groupId}`);
 
@@ -243,9 +298,12 @@ async function sendRenungan(isRetry = false) {
     // Schedule retry 10 menit kemudian jika belum retry
     if (!isRetry) {
       console.log("🔄 Akan retry dalam 10 menit...");
-      setTimeout(() => {
-        sendRenungan(true);
-      }, 10 * 60 * 1000); // 10 menit
+      setTimeout(
+        () => {
+          sendRenungan(true);
+        },
+        10 * 60 * 1000,
+      ); // 10 menit
     }
 
     // Notif error ke Telegram saja
@@ -254,7 +312,7 @@ async function sendRenungan(isRetry = false) {
       await telegram.notifyAdminError(
         `❌ Error kirim renungan:\n${error.message}\n${
           isRetry ? "(Retry gagal)" : "(Akan retry 10 menit)"
-        }`
+        }`,
       );
     }
 
@@ -307,14 +365,67 @@ async function sendRenunganWithMessage(message) {
 
     console.log("📤 Mengirim renungan yang sudah di-preview...");
 
-    // Kirim ke WhatsApp
-    await wa.sendMessage(groupId, message);
+    // Load config untuk cek hide tag dan multi-group
+    const config = await loadConfig();
+    const useHideTag = config.hideTagEnabled || false;
+    const useMultiGroup = config.multiGroupEnabled || false;
+    const renunganGroups = config.renunganGroups || [];
+    const delayMinutes = config.multiGroupDelayMinutes || 2;
+
+    // Fungsi helper untuk kirim ke satu grup
+    const sendToGroup = async (targetGroupId) => {
+      if (useHideTag) {
+        await wa.sendMessageWithHideTag(targetGroupId, message);
+      } else {
+        await wa.sendMessage(targetGroupId, message);
+      }
+      console.log(
+        `✅ Renungan terkirim ke ${targetGroupId} (hideTag: ${useHideTag})`,
+      );
+    };
+
+    // Kirim ke grup utama
+    await sendToGroup(groupId);
+
+    // Jika multi-group enabled, kirim ke grup lain dengan delay
+    if (useMultiGroup && renunganGroups.length > 0) {
+      console.log(
+        `📢 Multi-group mode: akan kirim ke ${renunganGroups.length} grup tambahan`,
+      );
+
+      for (let i = 0; i < renunganGroups.length; i++) {
+        const group = renunganGroups[i];
+        if (group.id === groupId) continue; // Skip grup utama
+
+        // Delay antara grup (1-3 menit acak atau sesuai config)
+        const delayMs = delayMinutes * 60 * 1000 + Math.random() * 60000;
+
+        setTimeout(
+          async () => {
+            try {
+              await sendToGroup(group.id);
+              console.log(
+                `✅ Renungan terkirim ke grup ${group.name || group.id}`,
+              );
+            } catch (err) {
+              console.error(
+                `❌ Gagal kirim ke grup ${group.name || group.id}:`,
+                err.message,
+              );
+            }
+          },
+          delayMs * (i + 1),
+        );
+      }
+    }
 
     console.log(`✅ Renungan terkirim ke ${groupId}`);
 
     return {
       success: true,
       groupId,
+      hideTagEnabled: useHideTag,
+      multiGroupEnabled: useMultiGroup,
     };
   } catch (error) {
     console.error("❌ Gagal kirim renungan:", error.message);
@@ -331,7 +442,7 @@ async function addVerse(verseRef, category = "umum") {
 
     // Check duplicate
     const exists = versesData.verses.some(
-      (v) => v.verse.toLowerCase() === verseRef.toLowerCase()
+      (v) => v.verse.toLowerCase() === verseRef.toLowerCase(),
     );
 
     if (exists) {
@@ -441,13 +552,13 @@ function startRenunganScheduler() {
       console.log(`\n⏰ Waktu renungan: ${moment().format("HH:mm")}`);
       await sendRenungan();
     },
-    { timezone: process.env.TIMEZONE || "Asia/Makassar" }
+    { timezone: process.env.TIMEZONE || "Asia/Makassar" },
   );
 
   console.log(
     `📖 Renungan harian dijadwalkan jam ${renunganTime} ${
       process.env.TIMEZONE || "WITA"
-    }`
+    }`,
   );
 }
 

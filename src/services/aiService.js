@@ -10,8 +10,8 @@ const fs = require("fs-extra");
 moment.locale("id"); // Bahasa Indonesia
 moment.tz.setDefault(process.env.TIMEZONE || "Asia/Makassar");
 
-// Rate limiting config (15 req/menit Gemini = 4000 ms antara request)
-const RATE_LIMIT_MS = 4000; // 4 detik (15 req/menit)
+// Rate limiting config (hemat bandwidth - 5 detik antar request)
+const RATE_LIMIT_MS = 5000; // 5 detik
 const RATE_LIMIT_FILE = "./src/data/ai_rate_limit.json";
 
 // API Endpoints
@@ -19,6 +19,9 @@ const API_ENDPOINTS = {
   openrouter: "https://openrouter.ai/api/v1/chat/completions",
   gemini: "https://generativelanguage.googleapis.com/v1beta/models",
 };
+
+// Timeout untuk API requests (hemat resource)
+const API_TIMEOUT = 45000; // 45 detik
 
 // Multiple API Keys Support dengan auto-rotation
 let currentApiKeyIndex = 0;
@@ -286,7 +289,7 @@ Tuhan Yesus memberkati kita semua💗✨
               },
             ],
             temperature: 0.7,
-            max_tokens: 2048,
+            max_tokens: 1536, // Dikurangi dari 2048
           },
           {
             headers: {
@@ -295,7 +298,7 @@ Tuhan Yesus memberkati kita semua💗✨
               "HTTP-Referer": "https://github.com/jhopan/Bot-WA-Ringan",
               "X-Title": "WhatsApp Telegram Bot",
             },
-            timeout: 60000,
+            timeout: API_TIMEOUT,
           },
         );
 
@@ -311,9 +314,9 @@ Tuhan Yesus memberkati kita semua💗✨
           `${API_ENDPOINTS.gemini}/${model}:generateContent?key=${apiKey}`,
           {
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 1536 },
           },
-          { timeout: 60000 },
+          { timeout: API_TIMEOUT },
         );
 
         const generatedText =
@@ -609,10 +612,79 @@ async function testAIConnection() {
   }
 }
 
+/**
+ * Generate ayat alkitab untuk ucapan ulang tahun
+ * @param {string} name - Nama orang yang berulang tahun
+ * @returns {string} - Ayat alkitab dengan format yang sesuai
+ */
+async function generateBirthdayVerse(name) {
+  const provider = getProvider();
+  const apiKey = process.env.AI_API_KEY;
+  const model = process.env.AI_MODEL || "moonshotai/kimi-k2:free";
+
+  if (!apiKey) {
+    // Return default verse jika tidak ada API key
+    return `📖 _"Sebab Aku ini mengetahui rancangan-rancangan apa yang ada pada-Ku mengenai kamu, demikianlah firman TUHAN, yaitu rancangan damai sejahtera dan bukan rancangan kecelakaan, untuk memberikan kepadamu hari depan yang penuh harapan."_\n— Yeremia 29:11`;
+  }
+
+  const prompt = `Berikan satu ayat Alkitab yang cocok untuk ucapan ulang tahun.
+Nama: ${name}
+
+Format output HARUS seperti ini:
+📖 _"[Isi ayat lengkap]"_
+— [Nama Kitab Bab:Ayat]
+
+Pilih ayat yang memberikan berkat, harapan, atau sukacita untuk ulang tahun.
+Contoh ayat yang cocok: Yeremia 29:11, Mazmur 20:4, Bilangan 6:24-26, Yosua 1:9
+
+Output HANYA ayat dengan format di atas, tanpa penjelasan tambahan.`;
+
+  try {
+    if (provider === "openrouter") {
+      const response = await axios.post(
+        API_ENDPOINTS.openrouter,
+        {
+          model: model,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Kamu adalah asisten yang memberikan ayat Alkitab untuk ucapan ulang tahun.",
+            },
+            { role: "user", content: prompt },
+          ],
+          max_tokens: 200,
+          temperature: 0.7,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/jhopan/Bot-WA-Ringan",
+            "X-Title": "WhatsApp Telegram Bot",
+          },
+          timeout: 30000,
+        },
+      );
+
+      const verse = response.data?.choices?.[0]?.message?.content?.trim();
+      if (verse) {
+        return verse;
+      }
+    }
+
+    // Fallback to default verse
+    return `📖 _"Sebab Aku ini mengetahui rancangan-rancangan apa yang ada pada-Ku mengenai kamu, demikianlah firman TUHAN, yaitu rancangan damai sejahtera dan bukan rancangan kecelakaan, untuk memberikan kepadamu hari depan yang penuh harapan."_\n— Yeremia 29:11`;
+  } catch (error) {
+    console.error("❌ Error generate birthday verse:", error.message);
+    // Return default verse on error
+    return `📖 _"Sebab Aku ini mengetahui rancangan-rancangan apa yang ada pada-Ku mengenai kamu, demikianlah firman TUHAN, yaitu rancangan damai sejahtera dan bukan rancangan kecelakaan, untuk memberikan kepadamu hari depan yang penuh harapan."_\n— Yeremia 29:11`;
+  }
+}
+
 module.exports = {
   generateRenungan,
   checkSpecialDay,
-  generateBirthdayWish,
   testAIConnection,
   getProvider,
   checkRateLimit,

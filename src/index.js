@@ -1,24 +1,29 @@
 /**
- * WhatsApp-Telegram Bot
- * Main Entry Point
+ * WhatsApp-Telegram Bot - Renungan Harian
+ * Main Entry Point - Optimized for GCP Free Tier
  *
- * Fokus: Renungan Harian & Pengingat Ulang Tahun
+ * Fokus: Renungan Harian Multi-Group
+ * Mode: Webhook (hemat bandwidth) atau Polling (fallback)
  */
 
 require("dotenv").config();
 
-const { startTelegramBot, bot } = require("./botTelegram");
+const {
+  startTelegramBot,
+  bot,
+  getBotMode,
+  cleanupWebhook,
+} = require("./botTelegram");
 const { initWhatsApp } = require("./botWhatsApp");
 const { startRenunganScheduler } = require("./renunganHandler");
-const { startBirthdayReminder } = require("./birthdayReminder");
-const { initGoogleSheets } = require("./googleSheetService");
 const { loadConfig } = require("./utils/configManager");
 
 // Banner
+const botMode = process.env.WEBHOOK_URL ? "WEBHOOK" : "POLLING";
 console.log(`
 ╔═══════════════════════════════════════════════════════╗
-║       WhatsApp-Telegram Bot v4.0 (Lightweight)        ║
-║       Renungan Harian & Pengingat Ulang Tahun         ║
+║     WhatsApp-Telegram Bot v5.2 (${botMode})          ║
+║         Renungan Harian - GCP Free Tier             ║
 ╚═══════════════════════════════════════════════════════╝
 `);
 
@@ -35,12 +40,17 @@ console.log(`
   console.log("─".repeat(50));
 
   // Validasi konfigurasi
-  const requiredEnv = ["TELEGRAM_BOT_TOKEN", "GEMINI_API_KEY"];
+  const requiredEnv = ["TELEGRAM_BOT_TOKEN"];
+  // Check AI API key (salah satu harus ada)
+  const hasAIKey = process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY;
   const missingEnv = requiredEnv.filter((key) => !process.env[key]);
 
-  if (missingEnv.length > 0) {
+  if (missingEnv.length > 0 || !hasAIKey) {
     console.error("❌ Environment variables tidak lengkap:");
     missingEnv.forEach((key) => console.error(`   - ${key}`));
+    if (!hasAIKey) {
+      console.error("   - GEMINI_API_KEY atau OPENROUTER_API_KEY (salah satu)");
+    }
     console.error("\nSilakan lengkapi file .env");
     process.exit(1);
   }
@@ -58,39 +68,29 @@ console.log(`
       // Sync config dari file ke environment variables
       if (config.renunganGroupId)
         process.env.RENUNGAN_GROUP_ID = config.renunganGroupId;
-      if (config.birthdayGroupId)
-        process.env.BIRTHDAY_GROUP_ID = config.birthdayGroupId;
       if (config.renunganTime) process.env.RENUNGAN_TIME = config.renunganTime;
-      if (config.birthdayTime) process.env.BIRTHDAY_TIME = config.birthdayTime;
       console.log("✅ Config loaded dari file");
       console.log(
         `   📖 Renungan: ${config.renunganTime} → Grup: ${
           config.renunganGroupId || "Belum diatur"
         }`,
       );
-      console.log(
-        `   🎂 Birthday: ${config.birthdayTime} → Grup: ${
-          config.birthdayGroupId || "Belum diatur"
-        }`,
-      );
+      if (config.multiGroupEnabled && config.renunganGroups?.length > 0) {
+        console.log(`   📡 Multi-Group: ${config.renunganGroups.length} grup`);
+      }
     }
 
-    // 1. Inisialisasi Google Sheets
-    console.log("📊 Menghubungkan ke Google Sheets...");
-    await initGoogleSheets();
-
-    // 2. Inisialisasi WhatsApp (dengan Telegram bot untuk QR)
-    console.log("📱 Menginisialisasi WhatsApp (Mode Ringan)...");
+    // 1. Inisialisasi WhatsApp (dengan Telegram bot untuk QR)
+    console.log("📱 Menginisialisasi WhatsApp (Mode Ultra Ringan)...");
     await initWhatsApp(bot);
 
-    // 3. Start Telegram Bot
+    // 2. Start Telegram Bot
     console.log("🤖 Memulai Telegram Bot...");
     startTelegramBot();
 
-    // 4. Start Schedulers
-    console.log("⏰ Mengatur jadwal...");
+    // 3. Start Renungan Scheduler
+    console.log("⏰ Mengatur jadwal renungan...");
     startRenunganScheduler();
-    startBirthdayReminder();
 
     const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
 
@@ -101,13 +101,23 @@ console.log(`
       "📖 Renungan harian akan dikirim jam " +
         (process.env.RENUNGAN_TIME || "08:00"),
     );
-    console.log(
-      "🎂 Cek ulang tahun akan dilakukan jam " +
-        (process.env.BIRTHDAY_TIME || "07:00"),
-    );
     console.log("");
     console.log("💡 Gunakan Telegram Bot untuk mengontrol sistem");
     console.log("─".repeat(50));
+
+    // Bot mode info
+    const modeInfo = getBotMode();
+    console.log(`🌐 Telegram Mode: ${modeInfo.mode.toUpperCase()}`);
+    console.log(`📊 Est. Bandwidth: ${modeInfo.bandwidthEstimate}`);
+    if (modeInfo.mode === "webhook") {
+      console.log(`🔗 Webhook: ${modeInfo.webhookUrl}`);
+    }
+
+    // Memory usage info
+    const used = process.memoryUsage();
+    console.log(
+      `💾 Memory Usage: ${Math.round(used.heapUsed / 1024 / 1024)}MB`,
+    );
   } catch (error) {
     console.error("❌ Error fatal:", error.message);
     console.error(error.stack);
@@ -118,15 +128,21 @@ console.log(`
   // GRACEFUL SHUTDOWN HANDLERS
   // ============================================
 
-  process.on("SIGINT", () => {
-    console.log("\n\n⏸️  Menghentikan bot...");
-    process.exit(0);
-  });
+  const gracefulShutdown = async (signal) => {
+    console.log(`\n\n⏸️  Menerima ${signal}, shutdown gracefully...`);
 
-  process.on("SIGTERM", () => {
-    console.log("\n\n⏸️  Bot dihentikan");
+    // Cleanup webhook jika pakai webhook mode
+    try {
+      await cleanupWebhook();
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
     process.exit(0);
-  });
+  };
+
+  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
   // Prevent crash dari unhandled errors
   process.on("unhandledRejection", (reason, promise) => {
@@ -137,4 +153,34 @@ console.log(`
     console.error("❌ Uncaught Exception:", error.message);
     // Jangan exit, biarkan bot tetap jalan
   });
+
+  // ============================================
+  // MEMORY MONITORING (958MB Total RAM)
+  // ============================================
+
+  // Log memory usage setiap 30 menit
+  setInterval(
+    () => {
+      const used = process.memoryUsage();
+      const heapMB = Math.round(used.heapUsed / 1024 / 1024);
+      const rssMB = Math.round(used.rss / 1024 / 1024);
+
+      console.log(
+        `📊 Memory: Heap ${heapMB}MB | RSS ${rssMB}MB (Max target: 500MB)`,
+      );
+
+      // Warning jika memory tinggi (>400MB RSS)
+      if (rssMB > 400) {
+        console.warn(
+          `⚠️ Memory usage tinggi! RSS: ${rssMB}MB (target: <500MB)`,
+        );
+        // Force GC jika tinggi
+        if (global.gc) {
+          global.gc();
+          console.log("🧹 Garbage collection executed");
+        }
+      }
+    },
+    30 * 60 * 1000,
+  ); // 30 menit
 })();

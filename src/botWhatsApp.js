@@ -1,6 +1,6 @@
 /**
- * WhatsApp Bot - Super Lightweight Version
- * Fokus: Stabilitas dan hemat resource
+ * WhatsApp Bot - Ultra Lightweight Version for GCP Free Tier
+ * Fokus: Stabilitas, Session Persistence, dan hemat resource
  * Kontrol sepenuhnya via Telegram Bot
  */
 
@@ -16,51 +16,98 @@ let telegramBot = null;
 let adminChatIds = new Map();
 let connectionState = "DISCONNECTED";
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
-const BASE_RECONNECT_DELAY = 5000;
+const MAX_RECONNECT_ATTEMPTS = 20; // Lebih banyak retry untuk stabilitas
+const BASE_RECONNECT_DELAY = 10000; // 10 detik
+
+// Session keep-alive interval - CRITICAL untuk prevent logout
+let keepAliveInterval = null;
+let sessionCheckInterval = null;
+let lastActivityTime = Date.now();
+let lastKeepAliveCheck = Date.now();
+
+// Memory cleanup interval (optional untuk 1GB RAM)
+let memoryCleanupInterval = null;
 
 // Event emitter untuk notifikasi
 const waEvents = new EventEmitter();
 
 /**
- * Inisialisasi WhatsApp Client dengan konfigurasi minimal dan ringan
+ * Inisialisasi WhatsApp Client dengan konfigurasi ultra ringan untuk GCP Free Tier
+ * Optimasi untuk RAM 256MB dan session persistence
  */
 async function initWhatsApp(bot) {
   telegramBot = bot;
 
-  // Konfigurasi client yang super ringan untuk GCP Free Tier (256MB RAM)
+  // Konfigurasi client untuk 958MB RAM - Max app usage 500MB
+  // CPU: 2 cores, jangan sampai 100%
+  const chromePath =
+    process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || null;
+
+  const puppeteerConfig = {
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--no-first-run",
+      "--no-zygote",
+      "--single-process", // Hemat CPU - tidak spawn banyak process
+      "--disable-gpu",
+      "--disable-extensions",
+      "--disable-background-networking",
+      "--disable-sync",
+      "--disable-translate",
+      "--disable-default-apps",
+      "--mute-audio",
+      "--hide-scrollbars",
+      "--disable-plugins",
+      "--disable-infobars",
+      "--window-size=800,600", // Kecil untuk hemat memory
+      "--disable-features=TranslateUI,BlinkGenPropertyTrees",
+      "--disable-ipc-flooding-protection",
+      "--disable-renderer-backgrounding",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-component-update",
+      "--js-flags=--max-old-space-size=256", // 256MB heap untuk Chrome (hemat)
+      "--disable-software-rasterizer",
+      "--disable-web-security",
+      "--disable-canvas-aa", // Hemat CPU
+      "--disable-2d-canvas-clip-aa", // Hemat CPU
+      "--aggressive-cache-discard", // Hemat memory
+      "--disable-cache", // Hemat memory & disk I/O
+      "--disk-cache-size=0", // No disk cache
+    ],
+    timeout: 120000, // 2 menit timeout
+  };
+
+  // Tambah executablePath jika ada
+  if (chromePath) {
+    puppeteerConfig.executablePath = chromePath;
+    console.log(`🌐 Menggunakan Chrome: ${chromePath}`);
+  }
+
   waClient = new Client({
     authStrategy: new LocalAuth({
       dataPath: "./.wwebjs_auth",
+      clientId: "renungan-bot",
     }),
-    puppeteer: {
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--no-first-run",
-        "--no-zygote",
-        "--disable-gpu",
-        "--disable-extensions",
-        "--disable-background-networking",
-        "--disable-sync",
-        "--disable-translate",
-        "--disable-default-apps",
-        "--mute-audio",
-      ],
-    },
-    qrMaxRetries: 5,
+    puppeteer: puppeteerConfig,
+    qrMaxRetries: 3,
     takeoverOnConflict: true,
-    takeoverTimeoutMs: 10000,
+    takeoverTimeoutMs: 15000,
+    restartOnAuthFail: true,
   });
 
   setupEventHandlers();
 
   try {
-    console.log("🚀 Memulai WhatsApp Client (Mode Ringan)...");
+    console.log("🚀 Memulai WhatsApp Client (Mode Ultra Ringan)...");
     await waClient.initialize();
+
+    // Start keep-alive mechanism
+    startKeepAlive();
+
     return waClient;
   } catch (error) {
     console.error("❌ Error inisialisasi WhatsApp:", error.message);
@@ -70,7 +117,92 @@ async function initWhatsApp(bot) {
 }
 
 /**
- * Setup semua event handlers
+ * Keep-alive mechanism untuk menjaga session tetap aktif
+ * CRITICAL: Mencegah session logout otomatis
+ */
+function startKeepAlive() {
+  // Clear existing intervals
+  if (keepAliveInterval) clearInterval(keepAliveInterval);
+  if (sessionCheckInterval) clearInterval(sessionCheckInterval);
+  if (memoryCleanupInterval) clearInterval(memoryCleanupInterval);
+
+  // Keep-alive ping setiap 2 menit (SANGAT PENTING untuk prevent logout)
+  keepAliveInterval = setInterval(
+    async () => {
+      try {
+        if (waClient && connectionState === "CONNECTED") {
+          // Ping untuk keep session alive
+          const state = await waClient.getState();
+          lastActivityTime = Date.now();
+          lastKeepAliveCheck = Date.now();
+
+          if (state !== "CONNECTED") {
+            console.log("⚠️ Session state berubah:", state);
+            connectionState = state;
+
+            // Auto-recovery jika state berubah
+            if (state === "CONFLICT" || state === "UNPAIRED") {
+              console.log("🔄 Attempting auto-recovery...");
+              scheduleReconnect();
+            }
+          } else {
+            // Session OK, log setiap 10 menit
+            const uptimeMin = Math.floor(
+              (Date.now() - lastActivityTime) / 60000,
+            );
+            if (uptimeMin % 10 === 0) {
+              console.log(`✅ Session aktif (uptime: ${uptimeMin} min)`);
+            }
+          }
+        }
+      } catch (error) {
+        console.log("⚠️ Keep-alive check error:", error.message);
+        // Jika error, mungkin perlu reconnect
+        if (connectionState === "CONNECTED") {
+          connectionState = "DISCONNECTED";
+          scheduleReconnect();
+        }
+      }
+    },
+    2 * 60 * 1000,
+  ); // 2 menit (lebih agresif)
+
+  // Session health check setiap 5 menit (lebih detail)
+  sessionCheckInterval = setInterval(
+    async () => {
+      try {
+        if (waClient) {
+          const info = await waClient.info;
+          if (info) {
+            console.log(
+              `📱 WA Phone: ${info.wid.user} | Platform: ${info.platform}`,
+            );
+          }
+        }
+      } catch (error) {
+        console.log("⚠️ Session check failed:", error.message);
+      }
+    },
+    5 * 60 * 1000,
+  ); // 5 menit
+
+  // Memory cleanup opsional (untuk 1GB RAM tidak terlalu critical)
+  memoryCleanupInterval = setInterval(
+    () => {
+      if (global.gc) {
+        global.gc();
+      }
+    },
+    20 * 60 * 1000,
+  ); // 20 menit (jarang saja)
+
+  console.log(
+    "✅ Session keep-alive aktif (2 min interval) - PREVENT LOGOUT MODE",
+  );
+}
+
+/**
+ * Setup semua event handlers dengan optimasi session persistence
  */
 function setupEventHandlers() {
   // QR Code event
@@ -86,6 +218,7 @@ function setupEventHandlers() {
     console.log("✅ WhatsApp siap dan terhubung!");
     connectionState = "CONNECTED";
     reconnectAttempts = 0;
+    lastActivityTime = Date.now();
 
     await notifyAdmins(
       "✅ *WhatsApp Terhubung!*\n\n" +
@@ -96,31 +229,36 @@ function setupEventHandlers() {
     waEvents.emit("ready");
   });
 
-  // Authenticated event
+  // Authenticated event - Session berhasil di-restore
   waClient.on("authenticated", () => {
-    console.log("🔐 WhatsApp terautentikasi!");
+    console.log("🔐 WhatsApp terautentikasi! (Session restored)");
     connectionState = "AUTHENTICATED";
+    lastActivityTime = Date.now();
   });
 
-  // Auth failure event
+  // Auth failure event - Perlu scan QR ulang
   waClient.on("auth_failure", async (msg) => {
     console.error("❌ Autentikasi gagal:", msg);
     connectionState = "AUTH_FAILURE";
 
     await notifyAdmins(
       "❌ *Autentikasi WhatsApp Gagal!*\n\n" +
+        "Session expired atau tidak valid.\n" +
         "Silakan hapus folder .wwebjs_auth dan scan ulang QR code.",
     );
   });
 
-  // Disconnected event
+  // Disconnected event - Auto reconnect
   waClient.on("disconnected", async (reason) => {
     console.log("⚠️ WhatsApp terputus:", reason);
     connectionState = "DISCONNECTED";
 
-    await notifyAdmins(
-      `⚠️ *WhatsApp Terputus!*\n\nAlasan: ${reason}\n\n🔄 Reconnect otomatis...`,
-    );
+    // Jangan kirim notifikasi untuk disconnect sementara
+    if (reason !== "NAVIGATION" && reason !== "CONFLICT") {
+      await notifyAdmins(
+        `⚠️ *WhatsApp Terputus!*\n\nAlasan: ${reason}\n\n🔄 Reconnect otomatis dalam beberapa detik...`,
+      );
+    }
 
     scheduleReconnect();
   });
@@ -129,13 +267,19 @@ function setupEventHandlers() {
   waClient.on("change_state", (state) => {
     console.log("🔄 Status WhatsApp:", state);
     connectionState = state;
+    lastActivityTime = Date.now();
   });
 
-  // Loading progress
+  // Loading progress - Minimal logging
   waClient.on("loading_screen", (percent, message) => {
-    if (percent % 25 === 0) {
+    if (percent === 0 || percent === 100 || percent % 50 === 0) {
       console.log(`⏳ Loading: ${percent}% - ${message}`);
     }
+  });
+
+  // Remote session saved - untuk debugging
+  waClient.on("remote_session_saved", () => {
+    console.log("💾 Session tersimpan ke local storage");
   });
 }
 
@@ -197,27 +341,57 @@ async function notifyAdmins(message) {
 /**
  * Schedule reconnect dengan exponential backoff
  */
+/**
+ * Schedule reconnect dengan exponential backoff
+ * Optimasi untuk stabilitas jangka panjang
+ */
 function scheduleReconnect() {
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-    console.log("❌ Max reconnect tercapai.");
+    console.log(
+      "❌ Max reconnect tercapai. Menunggu 10 menit sebelum reset counter...",
+    );
     notifyAdmins(
       "❌ *Gagal Reconnect WhatsApp!*\n\n" +
         `${MAX_RECONNECT_ATTEMPTS}x percobaan gagal.\n` +
-        "Silakan restart bot.",
+        "Bot akan mencoba lagi dalam 10 menit.\n" +
+        "Atau silakan restart bot manual.",
+    );
+
+    // Reset counter setelah 10 menit dan coba lagi
+    setTimeout(
+      () => {
+        console.log("🔄 Reset reconnect counter, mencoba lagi...");
+        reconnectAttempts = 0;
+        scheduleReconnect();
+      },
+      10 * 60 * 1000,
     );
     return;
   }
 
   reconnectAttempts++;
+  // Exponential backoff dengan max 2 menit
   const delay = Math.min(
-    BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1),
-    60000,
+    BASE_RECONNECT_DELAY * Math.pow(1.5, reconnectAttempts - 1),
+    120000,
   );
 
-  console.log(`🔄 Reconnect #${reconnectAttempts} dalam ${delay / 1000}s...`);
+  console.log(
+    `🔄 Reconnect #${reconnectAttempts} dalam ${Math.round(delay / 1000)}s...`,
+  );
 
   setTimeout(async () => {
     try {
+      // Destroy existing client jika ada
+      if (waClient) {
+        try {
+          await waClient.destroy();
+        } catch (e) {
+          console.log("⚠️ Error destroy client:", e.message);
+        }
+      }
+
+      // Re-initialize
       await waClient.initialize();
     } catch (error) {
       console.error("❌ Reconnect gagal:", error.message);
@@ -257,6 +431,59 @@ async function sendMessage(to, message) {
     throw new Error("WhatsApp tidak terhubung");
   }
   return waClient.sendMessage(to, message, { sendSeen: false });
+}
+
+/**
+ * Kirim pesan dengan hide tag (mention semua member tanpa terlihat)
+ * @param {string} to - Group ID
+ * @param {string} message - Pesan yang akan dikirim
+ * @returns {Promise<Object>} - Result dari pengiriman
+ */
+async function sendMessageWithHideTag(to, message) {
+  if (!(await isConnected())) {
+    throw new Error("WhatsApp tidak terhubung");
+  }
+
+  try {
+    // Dapatkan chat dan participants
+    const chat = await waClient.getChatById(to);
+
+    if (!chat.isGroup) {
+      // Jika bukan grup, kirim biasa
+      return waClient.sendMessage(to, message, { sendSeen: false });
+    }
+
+    // Dapatkan semua participant
+    const participants = chat.participants || [];
+
+    // Buat array mentions dari semua participant
+    const mentions = [];
+    for (const participant of participants) {
+      try {
+        const contact = await waClient.getContactById(
+          participant.id._serialized,
+        );
+        if (contact) {
+          mentions.push(contact);
+        }
+      } catch (err) {
+        // Skip jika gagal get contact
+        console.log(`⚠️ Skip mention untuk ${participant.id._serialized}`);
+      }
+    }
+
+    console.log(`📢 Hide tag: ${mentions.length} members akan di-mention`);
+
+    // Kirim pesan dengan mentions (hide tag - tidak ada @nama di text)
+    return waClient.sendMessage(to, message, {
+      sendSeen: false,
+      mentions: mentions,
+    });
+  } catch (error) {
+    console.error("❌ Error sendMessageWithHideTag:", error.message);
+    // Fallback ke kirim biasa jika error
+    return waClient.sendMessage(to, message, { sendSeen: false });
+  }
 }
 
 async function sendMedia(to, media, options = {}) {
@@ -421,6 +648,7 @@ module.exports = {
   isConnected,
   getConnectionState,
   sendMessage,
+  sendMessageWithHideTag,
   sendMedia,
   getChats,
   getContacts,
