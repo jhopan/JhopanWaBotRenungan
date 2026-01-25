@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Setup Script untuk GCP e2-micro (958MB RAM, 2 vCPU)
-# Bot WhatsApp Renungan Harian v5.2 - Cloudflare Worker Webhook
+# Bot WhatsApp Renungan Harian v5.3 - Cloudflare Tunnel
 # Optimized untuk 1GB egress/month
 
 echo "========================================="
-echo "  Setup Bot Renungan v5.2"
-echo "  GCP Free Tier + Cloudflare Worker"
+echo "  Setup Bot Renungan v5.3"
+echo "  GCP Free Tier + Cloudflare Tunnel"
 echo "========================================="
 echo ""
 
@@ -27,7 +27,14 @@ sudo apt install -y chromium-browser
 echo "📦 Installing PM2..."
 sudo npm install -g pm2
 
-# 5. Setup Swap (1GB) - PENTING untuk stability
+# 5. Install Cloudflared (Cloudflare Tunnel)
+echo "📦 Installing Cloudflared..."
+curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared.deb
+rm cloudflared.deb
+echo "✅ Cloudflared installed: $(cloudflared --version)"
+
+# 6. Setup Swap (1GB) - PENTING untuk stability
 echo "💾 Setting up 1GB Swap..."
 if [ ! -f /swapfile ]; then
     sudo fallocate -l 1G /swapfile
@@ -40,21 +47,14 @@ else
     echo "⚠️ Swap already exists"
 fi
 
-# 6. Optimize swappiness
+# 7. Optimize swappiness
 echo "⚙️ Optimizing swappiness..."
 sudo sysctl vm.swappiness=10
-echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf 2>/dev/null
 
-# 7. Install dependencies (asumsi sudah di dalam folder repo)
+# 8. Install dependencies (asumsi sudah di dalam folder repo)
 echo "📦 Installing Node.js dependencies..."
 npm install --production
-
-# 8. Setup Firewall untuk Webhook (port 3000)
-echo "🔥 Setting up Firewall..."
-gcloud compute firewall-rules create allow-webhook \
-  --allow tcp:3000 \
-  --source-ranges 0.0.0.0/0 \
-  --description "Allow webhook from Cloudflare Worker" 2>/dev/null || echo "⚠️ Firewall rule already exists"
 
 # 9. Setup environment variables
 echo "⚙️ Setting up environment variables..."
@@ -76,18 +76,17 @@ TELEGRAM_BOT_TOKEN=your_telegram_bot_token_from_botfather
 ADMIN_TELEGRAM_IDS=123456789
 
 # ============================================
-# WEBHOOK MODE (RECOMMENDED untuk GCP Free Tier)
+# WEBHOOK MODE (via Cloudflare Tunnel)
 # ============================================
-# Webhook mode hemat bandwidth: ~4 MB/month vs Polling: ~750 MB/month
-# URL Cloudflare Worker (deploy dulu di step selanjutnya):
-WEBHOOK_URL=https://your-worker-name.workers.dev
+# Webhook mode hemat bandwidth: ~10 MB/month vs Polling: ~215 MB/month
+# URL dari Cloudflare Tunnel (setup dengan: cloudflared tunnel login)
+WEBHOOK_URL=https://your-tunnel-subdomain.yourdomain.com
 WEBHOOK_PORT=3000
 
 # ============================================
 # AI PROVIDER - Gemini 2.5 Flash-Lite
 # ============================================
 # Limit: 15 req/min, 1000 req/day, 250k token/min
-# Format: key1,key2,key3 (pisahkan dengan koma untuk rotasi otomatis)
 GEMINI_API_KEY=your_gemini_api_key
 AI_MODEL=gemini-2.5-flash-lite
 
@@ -112,12 +111,6 @@ fi
 echo "📁 Creating logs directory..."
 mkdir -p logs
 
-# 11. Get External IP
-echo ""
-echo "📡 Getting External IP..."
-EXTERNAL_IP=$(curl -s ifconfig.me)
-echo "   External IP: $EXTERNAL_IP"
-
 echo ""
 echo "========================================="
 echo "✅ Setup completed!"
@@ -126,37 +119,49 @@ echo ""
 echo "📊 Current memory status:"
 free -h
 echo ""
-echo "🌐 PENTING: Setup Cloudflare Worker"
+echo "🌐 NEXT: Setup Cloudflare Tunnel"
 echo "========================================="
 echo ""
-echo "Step 1: Buka https://dash.cloudflare.com/workers"
-echo "   - Klik 'Create a Worker'"
-echo "   - Copy paste script dari: cloudflare-worker.js"
+echo "Step 1: Login ke Cloudflare"
+echo "   cloudflared tunnel login"
+echo "   (Copy URL yang muncul, buka di browser, authorize)"
 echo ""
-echo "Step 2: Edit Worker, ganti IP:"
-echo "   const GCP_VM_IP = \"$EXTERNAL_IP\""
+echo "Step 2: Buat Tunnel"
+echo "   cloudflared tunnel create wa-renungan"
+echo "   (Catat Tunnel ID yang muncul!)"
 echo ""
-echo "Step 3: Deploy Worker, dapat URL:"
-echo "   https://your-worker.workers.dev"
+echo "Step 3: Buat config file"
+echo "   nano ~/.cloudflared/config.yml"
 echo ""
-echo "Step 4: Edit .env dengan credentials"
+echo "   Isi dengan:"
+echo "   tunnel: YOUR_TUNNEL_ID"
+echo "   credentials-file: /home/$(whoami)/.cloudflared/YOUR_TUNNEL_ID.json"
+echo ""
+echo "   ingress:"
+echo "     - hostname: wa-renungan.yourdomain.com"
+echo "       service: http://localhost:3000"
+echo "     - service: http_status:404"
+echo ""
+echo "Step 4: Route DNS"
+echo "   cloudflared tunnel route dns wa-renungan wa-renungan"
+echo ""
+echo "Step 5: Install sebagai service"
+echo "   sudo cloudflared service install"
+echo "   sudo systemctl start cloudflared"
+echo "   sudo systemctl enable cloudflared"
+echo ""
+echo "Step 6: Edit .env"
 echo "   nano .env"
 echo "   - TELEGRAM_BOT_TOKEN=xxx"
 echo "   - ADMIN_TELEGRAM_IDS=xxx"
 echo "   - GEMINI_API_KEY=xxx"
-echo "   - WEBHOOK_URL=https://your-worker.workers.dev (jika beda)"
+echo "   - WEBHOOK_URL=https://wa-renungan.yourdomain.com"
 echo ""
-echo "Step 5: Start bot dengan PM2"
+echo "Step 7: Start bot"
 echo "   pm2 start ecosystem.config.js"
 echo "   pm2 save"
-echo "   pm2 startup"
+echo "   pm2 startup (copy & jalankan perintah yang muncul)"
 echo ""
-echo "📈 Bandwidth estimate:"
-echo "   - Webhook + Worker: ~25MB/month ✅ (2.5% quota)"
-echo "   - Polling:          ~750MB/month ❌ (75% quota)"
-echo ""
-echo "📝 Next:"
-echo "   1. Edit .env: nano .env"
-echo "   2. Deploy Cloudflare Worker"
-echo "   3. Start: pm2 start ecosystem.config.js"
+echo "📈 Bandwidth estimate (Webhook + Tunnel):"
+echo "   ~10MB/month ✅ (1% dari 1GB free tier)"
 echo ""

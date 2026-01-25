@@ -1561,7 +1561,9 @@ function setupWebhook() {
   // Webhook endpoint
   expressApp.post(webhookPath, (req, res) => {
     try {
-      console.log(`✅ Webhook received! Body keys: ${Object.keys(req.body || {}).join(', ')}`);
+      console.log(
+        `✅ Webhook received! Body keys: ${Object.keys(req.body || {}).join(", ")}`,
+      );
       bot.processUpdate(req.body);
       res.sendStatus(200);
     } catch (error) {
@@ -1573,7 +1575,7 @@ function setupWebhook() {
   // Catch-all handler untuk debug
   expressApp.use((req, res) => {
     console.log(`⚠️ Unhandled route: ${req.method} ${req.path}`);
-    res.status(404).json({ error: 'Route not found', path: req.path });
+    res.status(404).json({ error: "Route not found", path: req.path });
   });
 
   // Start Express server
