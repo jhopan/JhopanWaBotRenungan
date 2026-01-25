@@ -79,8 +79,8 @@ ADMIN_TELEGRAM_IDS=123456789
 # WEBHOOK MODE (RECOMMENDED untuk GCP Free Tier)
 # ============================================
 # Webhook mode hemat bandwidth: ~4 MB/month vs Polling: ~750 MB/month
-# URL Cloudflare Worker (sudah di-deploy):
-WEBHOOK_URL=https://webhook-wa-renungan.jhosuainfo.workers.dev
+# URL Cloudflare Worker (deploy dulu di step selanjutnya):
+WEBHOOK_URL=https://your-worker-name.workers.dev
 WEBHOOK_PORT=3000
 
 # ============================================

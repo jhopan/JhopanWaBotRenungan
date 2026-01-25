@@ -541,36 +541,43 @@ Proteksi Memory:
 
 ## 📱 Telegram Commands (Admin Panel)
 
-### **Main Commands:**
+**🔘 BOT PAKAI TOMBOL (BUTTON) - KLIK AJA!**
+
+Kirim `/start` ke bot untuk buka **menu interaktif dengan tombol**. Semua fitur pakai button, tidak perlu ketik command ribet!
+
+### **Main Menu (Button Interface):**
 
 ```
-/start        - Menu utama bot
+/start        - Buka menu utama (dengan tombol interaktif)
 /status       - Status bot & memory usage
 /info         - Info sistem & bandwidth
 /help         - Bantuan lengkap
 ```
 
-### **Renungan Management:**
+### **Renungan Management (via Button):**
 
-```
-/setgroup     - Set grup WhatsApp untuk renungan
-/settime      - Set jadwal kirim renungan (default 08:00)
-/kirimrenungan - Kirim renungan manual sekarang
-```
+Setelah `/start`, klik tombol:
+- **📝 Renungan** → Kelola pengaturan renungan
+  - Set Grup WA (kirim link invite)
+  - Set Jadwal (pilih jam)
+  - Kirim Manual (sekarang)
+  - Hide Tag ON/OFF (toggle)
 
-### **AI Chat:**
+### **AI Chat (Direct Command):**
 
 ```
 /ai <pertanyaan>  - Chat dengan Gemini AI
 Contoh: /ai Jelaskan Yohanes 3:16
 ```
 
-### **Advanced:**
+### **Advanced Settings (via Button):**
 
-```
-/hidetagoff   - Show tag user di renungan
-/hidetagon    - Hide tag user (default)
-```
+- **⚙️ Pengaturan** → Konfigurasi lanjutan
+  - Multi-group mode
+  - Delay antar grup
+  - Hide tag toggle
+
+**⚡ Semua pengaturan bisa diubah lewat button, tidak perlu hafal command!**
 
 ---
 
