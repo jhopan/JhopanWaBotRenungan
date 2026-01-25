@@ -1,4 +1,4 @@
-# 🤖 WhatsApp Bot Renungan Harian v5.4
+# 🤖 WhatsApp Bot Renungan Harian v5.5
 
 Bot WhatsApp dengan sistem renungan harian menggunakan AI, dioptimasi untuk **GCP Free Tier** dengan **Cloudflare Tunnel** (hemat bandwidth 95%).
 
@@ -46,6 +46,7 @@ Bot AUTO-DETECT mode:
 - 💡 **Memory Optimized** - Max 480MB, auto-restart jika over
 - 📢 **Multi-Group** - Kirim ke banyak grup dengan delay anti-spam
 - ⚡ **Modern WhatsApp.js** - Fix deprecated mentions (hideTag optimized)
+- 🔒 **Safe Group Management** - No auto-join, manual invite only (grup locked-safe)
 
 ---
 
@@ -384,6 +385,25 @@ pm2 logs renungan-bot
 Pilih menu di bawah:
 [📖 Renungan Harian] [⚙️ Pengaturan] [📊 Status Bot]
 ```
+
+#### **Test Setting Grup Renungan**
+
+```
+1. Klik [⚙️ Pengaturan]
+2. Klik [📖 Atur Grup Renungan]
+3. Kirim link invite atau Group ID
+```
+
+**⚠️ PENTING:** Bot TIDAK akan auto-join grup!
+- ✅ Bot hanya mengambil informasi grup (ID & nama)
+- ✅ Aman untuk grup yang locked/butuh persetujuan
+- ✅ Kamu harus invite bot manual terlebih dahulu
+
+**Cara invite bot:**
+1. Buka grup WhatsApp
+2. Klik Info Grup → Add Participants
+3. Cari nomor bot → Add
+4. Setelah bot masuk, baru paste link/ID ke Telegram
 
 ---
 

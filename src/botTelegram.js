@@ -993,7 +993,7 @@ async function showSettingsMenu(chatId, messageId) {
 
 📖 Renungan:
 • Waktu: ${config.renunganTime || "08:00"} WITA
-• Group ID: ${config.renunganGroupId ? "Sudah diatur" : "Belum diatur"}
+• Grup Utama: ${config.renunganGroupId ? config.renunganGroupName || "Sudah diatur" : "❌ Belum diatur"}
 • Multi-Group: ${config.multiGroupEnabled ? "🟢 ON" : "🔴 OFF"}
 
 🤖 AI Provider: ${getProvider().toUpperCase()}
@@ -1039,16 +1039,24 @@ async function handleSettingsCallback(data, chatId, messageId, userId) {
     case "settings_renungan_group":
       userStates.set(userId, { action: "set_renungan_group" });
       await safeEditMessage(
-        `⚙️ *Atur Group ID Renungan*
+        `⚙️ *Atur Grup Utama Renungan*
 
-Kirim salah satu dari:
+💡 *Cara Setting:*
 
-1️⃣ *Link Invite WhatsApp*
+1️⃣ *Invite bot ke grup WhatsApp terlebih dahulu*
+   (Jika belum)
+
+2️⃣ *Kirim salah satu dari:*
+
+   📱 *Link Invite WhatsApp*
    https://chat.whatsapp.com/xxxxx
-   _Bot akan otomatis join dan ambil Group ID_
+   _Bot akan ambil info grup otomatis_
 
-2️⃣ *Group ID Langsung*
+   🆔 *Group ID Manual*
    Format: 6281234567890-1234567890@g.us
+   _Cara dapat: Buka grup \u2192 Info \u2192 scroll bawah_
+
+⚠️ *Catatan:* Bot TIDAK akan auto-join. Pastikan bot sudah ada di grup!
 
 Ketik "batal" untuk membatalkan.`,
         { chat_id: chatId, message_id: messageId },
@@ -1321,47 +1329,41 @@ bot.on("message", async (msg) => {
 
       case "set_renungan_group":
         let groupId = text;
+        let groupName = "";
 
         // Cek apakah ini link invite WhatsApp
         if (text.includes("chat.whatsapp.com/")) {
           await safeSendMessage(
             chatId,
-            "⏳ *Memproses link invite...*\n\nMencoba join grup...",
+            "⏳ *Memproses link invite...*\n\nMengambil info grup...",
           );
 
-          const joinResult = await wa.joinGroupByInviteLink(text);
+          // HANYA ambil info grup, TIDAK auto-join
+          const groupInfo = await wa.getGroupInfoFromInviteLink(text);
 
-          if (joinResult.success) {
-            const config1 = await loadConfig();
-            config1.renunganGroupId = joinResult.groupId;
-            await saveConfig(config1);
-            process.env.RENUNGAN_GROUP_ID = joinResult.groupId;
-
-            userStates.delete(userId);
-            await safeSendMessage(
-              chatId,
-              `✅ *Berhasil Join Grup!*\n\nGroup ID: ${joinResult.groupId}\n\n📖 Renungan akan dikirim ke grup ini.`,
-            );
-            await showSettingsMenu(chatId, null);
+          if (groupInfo.success) {
+            groupId = groupInfo.groupId;
+            groupName = groupInfo.groupName || "";
           } else {
             await safeSendMessage(
               chatId,
-              `❌ *Gagal Join Grup*\n\n${joinResult.error}\n\nSilakan coba lagi atau masukkan Group ID manual.`,
+              `❌ *Gagal Mengambil Info Grup*\n\n${groupInfo.error}\n\n💡 *Tips:*\n1. Pastikan bot sudah di-invite ke grup\n2. Atau masukkan Group ID manual (klik grup di WA → Info → scroll ke bawah)`,
             );
+            return;
           }
-          return;
         }
 
-        // Handle Group ID manual
+        // Simpan Group ID (baik dari link atau manual)
         const config1 = await loadConfig();
         config1.renunganGroupId = groupId;
+        config1.renunganGroupName = groupName; // Save nama juga
         await saveConfig(config1);
         process.env.RENUNGAN_GROUP_ID = groupId;
 
         userStates.delete(userId);
         await safeSendMessage(
           chatId,
-          `✅ *Group ID Renungan Diatur*\n\n${groupId.substring(0, 40)}...`,
+          `✅ *Grup Utama Berhasil Diatur!*\n\n📛 Nama: ${groupName || "Tidak diketahui"}\n🆔 ID: ${groupId.substring(0, 30)}...\n\n💡 Pastikan bot sudah ada di grup ini!`,
         );
         await showSettingsMenu(chatId, null);
         break;

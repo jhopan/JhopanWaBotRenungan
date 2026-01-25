@@ -19,6 +19,7 @@ async function loadConfig() {
     // Default config - Renungan only
     return {
       renunganGroupId: process.env.RENUNGAN_GROUP_ID || "",
+      renunganGroupName: "", // Nama grup utama
       renunganTime: process.env.RENUNGAN_TIME || "08:00",
       hideTagEnabled: false,
       multiGroupEnabled: false,
