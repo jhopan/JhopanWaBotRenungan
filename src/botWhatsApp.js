@@ -456,21 +456,8 @@ async function sendMessageWithHideTag(to, message) {
     // Dapatkan semua participant
     const participants = chat.participants || [];
 
-    // Buat array mentions dari semua participant
-    const mentions = [];
-    for (const participant of participants) {
-      try {
-        const contact = await waClient.getContactById(
-          participant.id._serialized,
-        );
-        if (contact) {
-          mentions.push(contact);
-        }
-      } catch (err) {
-        // Skip jika gagal get contact
-        console.log(`⚠️ Skip mention untuk ${participant.id._serialized}`);
-      }
-    }
+    // Buat array mentions dari ID participant (cara baru - tidak deprecated)
+    const mentions = participants.map((p) => p.id._serialized);
 
     console.log(`📢 Hide tag: ${mentions.length} members akan di-mention`);
 

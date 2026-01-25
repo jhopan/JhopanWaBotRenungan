@@ -1,4 +1,4 @@
-# 🤖 WhatsApp Bot Renungan Harian v5.3
+# 🤖 WhatsApp Bot Renungan Harian v5.4
 
 Bot WhatsApp dengan sistem renungan harian menggunakan AI, dioptimasi untuk **GCP Free Tier** dengan **Cloudflare Tunnel** (hemat bandwidth 95%).
 
@@ -42,9 +42,10 @@ Bot AUTO-DETECT mode:
 - 🤖 **Gemini 2.5 Flash-Lite** - AI gratis (15 req/min, 1000 req/day)
 - 📱 **Telegram Control Panel** - Kelola semua via Telegram dengan tombol interaktif
 - 💾 **Session Persistence** - Login WA sekali, tidak logout otomatis
-- 🔄 **Auto Recovery** - 20x retry, cron restart jam 3 pagi
+- 🔄 **Auto Recovery** - 20x retry, cron restart jam 3 pagi (ecosystem.config.js)
 - 💡 **Memory Optimized** - Max 480MB, auto-restart jika over
 - 📢 **Multi-Group** - Kirim ke banyak grup dengan delay anti-spam
+- ⚡ **Modern WhatsApp.js** - Fix deprecated mentions (hideTag optimized)
 
 ---
 
@@ -82,7 +83,7 @@ https://console.cloud.google.com/compute/instances
 ```
 Name: renungan-bot-vm (atau bebas)
 Region: us-west1 (Oregon) ✅ FREE TIER
-        us-central1 (Iowa) ✅ FREE TIER  
+        us-central1 (Iowa) ✅ FREE TIER
         us-east1 (South Carolina) ✅ FREE TIER
 Zone: Bebas pilih
 ```
@@ -105,6 +106,7 @@ Size: 10 GB ✅ (default, cukup)
 ```
 
 **❌ JANGAN pilih:**
+
 - Debian (kurang compatible)
 - CentOS (EOL)
 - Windows (tidak gratis)
@@ -227,6 +229,7 @@ ingress:
 ```
 
 **Catatan:**
+
 - Ganti `abc123-def456-ghi789` dengan Tunnel ID dari step B
 - Ganti `YOUR_USERNAME` dengan username VM kamu (lihat dengan `whoami`)
 - Ganti `yourdomain.com` dengan domain Cloudflare kamu
@@ -315,6 +318,14 @@ pm2 start ecosystem.config.js
 pm2 save
 pm2 startup  # Copy paste command yang muncul, lalu jalankan
 ```
+
+**Ecosystem Config Features:**
+
+- ✅ **Auto-restart jam 3 pagi** (bersihkan memory leak)
+- ✅ **Max memory 480MB** (restart otomatis jika over)
+- ✅ **Node.js optimized** (--expose-gc, --optimize-for-size)
+- ✅ **Auto-restart on crash** (max 10x dengan min uptime 30s)
+- ✅ **Logging** (error.log & out.log)
 
 **Cek status:**
 
