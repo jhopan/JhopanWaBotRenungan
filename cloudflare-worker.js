@@ -17,7 +17,7 @@ addEventListener("fetch", (event) => {
 });
 
 // GANTI INI dengan IP External GCP VM kamu!
-const GCP_VM_IP = "34.56.112.197";
+const GCP_VM_IP = "YOUR_GCP_EXTERNAL_IP";
 const GCP_PORT = 3000;
 
 async function handleRequest(request) {
