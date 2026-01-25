@@ -1296,6 +1296,7 @@ async function showStatus(chatId, messageId = null) {
 
 bot.on("message", async (msg) => {
   if (!msg.text || msg.text.startsWith("/")) return;
+  if (!msg.from || !msg.chat) return; // Guard: Skip malformed updates
 
   const userId = msg.from.id;
   const chatId = msg.chat.id;
