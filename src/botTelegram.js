@@ -1536,9 +1536,17 @@ function setupWebhook() {
   const webhookPath = `/bot${process.env.TELEGRAM_BOT_TOKEN}`;
   const fullWebhookUrl = `${WEBHOOK_URL}${webhookPath}`;
 
+  console.log(`🔧 Webhook path: ${webhookPath}`);
+
   // Create Express app
   expressApp = express();
   expressApp.use(express.json());
+
+  // Debug middleware - log semua incoming requests
+  expressApp.use((req, res, next) => {
+    console.log(`📨 ${req.method} ${req.path} from ${req.ip}`);
+    next();
+  });
 
   // Health check endpoint
   expressApp.get("/health", (req, res) => {
@@ -1553,12 +1561,19 @@ function setupWebhook() {
   // Webhook endpoint
   expressApp.post(webhookPath, (req, res) => {
     try {
+      console.log(`✅ Webhook received! Body keys: ${Object.keys(req.body || {}).join(', ')}`);
       bot.processUpdate(req.body);
       res.sendStatus(200);
     } catch (error) {
       console.error("❌ Webhook processing error:", error.message);
       res.sendStatus(500);
     }
+  });
+
+  // Catch-all handler untuk debug
+  expressApp.use((req, res) => {
+    console.log(`⚠️ Unhandled route: ${req.method} ${req.path}`);
+    res.status(404).json({ error: 'Route not found', path: req.path });
   });
 
   // Start Express server
