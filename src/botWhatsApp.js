@@ -44,7 +44,7 @@ async function initWhatsApp(bot) {
     process.env.CHROME_PATH || process.env.PUPPETEER_EXECUTABLE_PATH || null;
 
   const puppeteerConfig = {
-    headless: true,
+    headless: "new", // Chrome 144+ requires "new" headless mode
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -52,7 +52,7 @@ async function initWhatsApp(bot) {
       "--disable-accelerated-2d-canvas",
       "--no-first-run",
       "--no-zygote",
-      "--single-process", // Hemat CPU - tidak spawn banyak process
+      // REMOVED: --single-process (causes crashes in Chrome 144+)
       "--disable-gpu",
       "--disable-extensions",
       "--disable-background-networking",
@@ -69,7 +69,7 @@ async function initWhatsApp(bot) {
       "--disable-renderer-backgrounding",
       "--disable-backgrounding-occluded-windows",
       "--disable-component-update",
-      "--js-flags=--max-old-space-size=256", // 256MB heap untuk Chrome (hemat)
+      "--js-flags=--max-old-space-size=280", // 280MB heap untuk Chrome (stable)
       "--disable-software-rasterizer",
       "--disable-web-security",
       "--disable-canvas-aa", // Hemat CPU

@@ -19,9 +19,14 @@ echo "📦 Installing Node.js 20 LTS..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
-# 3. Install Chromium
-echo "📦 Installing Chromium..."
-sudo apt install -y chromium-browser
+# 3. Install Google Chrome (Official Stable)
+echo "📦 Installing Google Chrome..."
+cd ~
+wget -q --show-progress https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo dpkg -i google-chrome-stable_current_amd64.deb
+sudo apt --fix-broken install -y
+rm google-chrome-stable_current_amd64.deb
+echo "✅ Chrome installed: $(google-chrome-stable --version)"
 
 # 4. Install PM2
 echo "📦 Installing PM2..."

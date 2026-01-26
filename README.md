@@ -161,7 +161,7 @@ chmod +x setup-gcp.sh
 **Setup script akan install:**
 
 - ✅ Node.js 20 LTS
-- ✅ Chromium browser
+- ✅ Google Chrome (stable)
 - ✅ PM2 process manager
 - ✅ Swap 1GB
 - ✅ Dependencies npm
@@ -302,8 +302,8 @@ AI_MODEL=gemini-2.5-flash-lite
 # RENUNGAN (optional, bisa set via Telegram)
 RENUNGAN_TIME=08:00
 
-# CHROME
-CHROME_PATH=/usr/bin/chromium-browser
+# CHROME (Google Chrome Official - STABLE)
+CHROME_PATH=/usr/bin/google-chrome-stable
 ```
 
 **Save:** `Ctrl+O` → Enter → `Ctrl+X`
@@ -395,11 +395,13 @@ Pilih menu di bawah:
 ```
 
 **⚠️ PENTING:** Bot TIDAK akan auto-join grup!
+
 - ✅ Bot hanya mengambil informasi grup (ID & nama)
 - ✅ Aman untuk grup yang locked/butuh persetujuan
 - ✅ Kamu harus invite bot manual terlebih dahulu
 
 **Cara invite bot:**
+
 1. Buka grup WhatsApp
 2. Klik Info Grup → Add Participants
 3. Cari nomor bot → Add
